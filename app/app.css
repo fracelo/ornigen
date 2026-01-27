@@ -1,0 +1,171 @@
+/* ============================
+   Layout geral
+============================ */
+body {
+  margin: 0;
+  font-family: Arial, Helvetica, sans-serif;
+  background: linear-gradient(to right, #f0f8ff, #e6f2ff);
+  color: #333;
+}
+
+/* Container padrão: celular → logo acima */
+.login-container {
+  display: flex;
+  flex-direction: column; /* padrão: logo acima */
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 20px;
+}
+
+/* ============================
+   Logo
+============================ */
+.logo-area {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+
+.logo {
+  width: 120px;   /* tamanho menor em celular */
+  height: auto;
+}
+
+
+
+/* ============================
+   Card de login
+============================ */
+.card {
+  background: #fff;
+  padding: 30px;
+  border-radius: 12px;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.1);
+}
+
+.login-card {
+  width: 100%;
+  max-width: 400px;
+  text-align: center;
+}
+
+.login-title {
+  font-size: 22px;
+  margin-bottom: 20px;
+  color: #000;
+}
+
+/* ============================
+   Inputs e botão
+============================ */
+.form-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.input {
+  width: 100%;
+  padding: 12px;
+  margin-bottom: 15px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  font-size: 16px;
+  color: #000;              /* texto preto */
+  background-color: #fff;   /* fundo branco */
+}
+
+.input::placeholder {
+  color: #555; /* cinza escuro para diferenciar */
+}
+
+.btn {
+  width: 100%;
+  padding: 14px;
+  background-color: #007bff;
+  color: #fff;
+  font-size: 16px;
+  font-weight: bold;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.3s ease, transform 0.2s ease;
+}
+
+.btn:hover {
+  background-color: #0056b3;
+  transform: scale(1.03);
+}
+
+/* ============================
+   Links
+============================ */
+.login-links {
+  margin-top: 15px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.login-links a {
+  color: #007bff;
+  text-decoration: none;
+}
+
+.login-links a:hover {
+  text-decoration: underline;
+}
+
+/* ============================
+   Responsividade: desktop → logo à esquerda
+============================ */
+@media (min-width: 768px) {
+  .login-container {
+    flex-direction: row; /* logo + card lado a lado */
+    align-items: center;
+    justify-content: center;
+  }
+
+  .logo-area {
+    margin-right: 40px; /* logo à esquerda do card */
+    margin-bottom: 0;
+    justify-content: flex-end;
+  }
+
+  .logo {
+    width: 250px; /* aumenta em desktop */
+  }
+
+  /* Campo de senha com botão olho */
+.password-field {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.password-field .input {
+  width: 100%;
+  padding-right: 40px; /* espaço para o botão olho */
+}
+
+.eye-btn {
+  position: absolute;
+  right: 10px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 18px;
+}
+
+/* Botões lado a lado */
+.form-actions {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 20px;
+}
+
+.btn {
+  flex: 1;
+  margin: 0 5px;
+}
+}
