@@ -33,8 +33,9 @@ export default function CadastroEmpresaPage() {
   const [responsavelCpf, setResponsavelCpf] = useState("");
   const [email, setEmail] = useState("");
   const [telefone, setTelefone] = useState("");
+  const [eProprio, setEProprio] = useState(false);
 
-  // 🔹 Senha
+  // Senha
   const [senha, setSenha] = useState("");
   const [confirmacaoSenha, setConfirmacaoSenha] = useState("");
   const [showSenha, setShowSenha] = useState(false);
@@ -42,37 +43,43 @@ export default function CadastroEmpresaPage() {
 
   const router = useRouter();
 
-  const handleContinuar = () => {
-    if (tipoPessoa !== "") {
-      setContinuar(true);
-    } else {
-      alert("Selecione o tipo de pessoa antes de continuar.");
-    }
-  };
+  const formatCPF = (value: string) =>
+    value.replace(/\D/g, "")
+      .replace(/(\d{3})(\d)/, "$1.$2")
+      .replace(/(\d{3})(\d)/, "$1.$2")
+      .replace(/(\d{3})(\d{1,2})$/, "$1-$2")
+      .slice(0, 14);
 
-  const handleSalvar = async () => {
-    // 🔹 Validações obrigatórias
-    if (!razaoSocial) {
-      alert("O campo Nome/Razão Social é obrigatório.");
+  const formatCNPJ = (value: string) =>
+    value.replace(/\D/g, "")
+      .replace(/(\d{2})(\d)/, "$1.$2")
+      .replace(/(\d{3})(\d)/, "$1.$2")
+      .replace(/(\d{3})(\d)/, "$1/$2")
+      .replace(/(\d{4})(\d{1,2})$/, "$1-$2")
+      .slice(0, 18);
+
+  const handleSalvarPrimeiraEtapa = () => {
+    if (!tipoPessoa) {
+      alert("Selecione o tipo de pessoa.");
       return;
     }
     if (!documento) {
-      alert("O campo Documento (CPF/CNPJ) é obrigatório.");
-      return;
-    }
-    if (!email) {
-      alert("O campo E-mail é obrigatório.");
+      alert("Informe o documento (CPF ou CNPJ).");
       return;
     }
     if (!senha || !confirmacaoSenha) {
-      alert("Informe a senha e a confirmação da senha.");
+      alert("Informe a senha e a confirmação.");
       return;
     }
     if (senha !== confirmacaoSenha) {
       alert("As senhas não coincidem.");
       return;
     }
+    // Se passou nas validações, libera os outros campos
+    setContinuar(true);
+  };
 
+  const handleSalvarFinal = async () => {
     let nomeFantasiaFinal = nomeFantasia;
     let razaoSocialFinal = razaoSocial;
 
@@ -95,7 +102,8 @@ export default function CadastroEmpresaPage() {
         responsavel_cpf: responsavelCpf,
         email,
         telefone,
-        senha, //  ideal: salvar hash da senha
+        e_proprio: eProprio,
+        senha,
       },
     ]);
 
@@ -103,7 +111,7 @@ export default function CadastroEmpresaPage() {
       alert("Erro ao salvar empresa: " + error.message);
     } else {
       alert("Empresa cadastrada com sucesso!");
-      router.push("/loginempresa"); // redireciona para tela de login
+      router.push("/loginempresas");
     }
   };
 
@@ -112,147 +120,35 @@ export default function CadastroEmpresaPage() {
       <div className="card login-card">
         <h2 className="login-title">Cadastro de Empresa</h2>
 
+        {/* Etapa inicial: tipo de pessoa + documento + senha */}
         {!continuar && (
-          <FormControl component="fieldset" className="form-group">
-            <FormLabel component="legend">Informe o tipo de Pessoa</FormLabel>
-            <RadioGroup
-              value={tipoPessoa}
-              onChange={(e) => setTipoPessoa(e.target.value as "PF" | "PJ")}
-            >
-              <FormControlLabel
-                value="PF"
-                control={<Radio />}
-                label="Pessoa Física"
-              />
-              <FormControlLabel
-                value="PJ"
-                control={<Radio />}
-                label="Pessoa Jurídica"
-              />
-            </RadioGroup>
-
-            <Button
-              variant="contained"
-              color="primary"
-              onClick={handleContinuar}
-              sx={{ mt: 2 }}
-            >
-              Continuar
-            </Button>
-          </FormControl>
-        )}
-
-        {continuar && (
           <div className="form-group">
-            {tipoPessoa === "PF" && (
-              <>
-                <input
-                  type="text"
-                  placeholder="Nome"
-                  value={razaoSocial}
-                  onChange={(e) => setRazaoSocial(e.target.value)}
-                  className="input"
-                  required
-                />
-                <input
-                  type="text"
-                  placeholder="CPF"
-                  value={documento}
-                  onChange={(e) => setDocumento(e.target.value)}
-                  className="input"
-                  required
-                />
-              </>
-            )}
+            <FormControl component="fieldset">
+              <FormLabel>Tipo de Pessoa</FormLabel>
+              <RadioGroup
+                value={tipoPessoa}
+                onChange={(e) => setTipoPessoa(e.target.value as "PF" | "PJ")}
+              >
+                <FormControlLabel value="PF" control={<Radio />} label="Pessoa Física" />
+                <FormControlLabel value="PJ" control={<Radio />} label="Pessoa Jurídica" />
+              </RadioGroup>
+            </FormControl>
 
-            {tipoPessoa === "PJ" && (
-              <>
-                <input
-                  type="text"
-                  placeholder="Razão Social"
-                  value={razaoSocial}
-                  onChange={(e) => setRazaoSocial(e.target.value)}
-                  className="input"
-                  required
-                />
-                <input
-                  type="text"
-                  placeholder="Nome Fantasia"
-                  value={nomeFantasia}
-                  onChange={(e) => setNomeFantasia(e.target.value)}
-                  className="input"
-                />
-                <input
-                  type="text"
-                  placeholder="CNPJ"
-                  value={documento}
-                  onChange={(e) => setDocumento(e.target.value)}
-                  className="input"
-                  required
-                />
-              </>
-            )}
-
-            {/* Campos comuns */}
             <input
               type="text"
-              placeholder="CEP"
-              value={cep}
-              onChange={(e) => setCep(e.target.value)}
-              className="input"
-            />
-            <input
-              type="text"
-              placeholder="Endereço"
-              value={endereco}
-              onChange={(e) => setEndereco(e.target.value)}
-              className="input"
-            />
-            <input
-              type="text"
-              placeholder="Cidade"
-              value={cidade}
-              onChange={(e) => setCidade(e.target.value)}
-              className="input"
-            />
-            <input
-              type="text"
-              placeholder="Estado (UF)"
-              value={estado}
-              onChange={(e) => setEstado(e.target.value)}
-              className="input"
-            />
-            <input
-              type="text"
-              placeholder="Responsável Nome"
-              value={responsavelNome}
-              onChange={(e) => setResponsavelNome(e.target.value)}
-              className="input"
-            />
-            <input
-              type="text"
-              placeholder="Responsável CPF"
-              value={responsavelCpf}
-              onChange={(e) => setResponsavelCpf(e.target.value)}
-              className="input"
-            />
-            <input
-              type="email"
-              placeholder="E-mail"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="input"
-              required
-            />
-            <input
-              type="text"
-              placeholder="Telefone"
-              value={telefone}
-              onChange={(e) => setTelefone(e.target.value)}
+              placeholder={tipoPessoa === "PJ" ? "CNPJ" : "CPF"}
+              value={documento}
+              onChange={(e) =>
+                setDocumento(
+                  tipoPessoa === "PJ"
+                    ? formatCNPJ(e.target.value)
+                    : formatCPF(e.target.value)
+                )
+              }
               className="input"
             />
 
-            {/* Senha e confirmação */}
+            {/* Senha */}
             <div style={{ position: "relative" }}>
               <input
                 type={showSenha ? "text" : "password"}
@@ -260,7 +156,6 @@ export default function CadastroEmpresaPage() {
                 value={senha}
                 onChange={(e) => setSenha(e.target.value)}
                 className="input"
-                required
               />
               <span
                 onClick={() => setShowSenha(!showSenha)}
@@ -270,6 +165,7 @@ export default function CadastroEmpresaPage() {
               </span>
             </div>
 
+            {/* Confirmação */}
             <div style={{ position: "relative" }}>
               <input
                 type={showConfirmacao ? "text" : "password"}
@@ -277,7 +173,6 @@ export default function CadastroEmpresaPage() {
                 value={confirmacaoSenha}
                 onChange={(e) => setConfirmacaoSenha(e.target.value)}
                 className="input"
-                required
               />
               <span
                 onClick={() => setShowConfirmacao(!showConfirmacao)}
@@ -286,6 +181,118 @@ export default function CadastroEmpresaPage() {
                 {showConfirmacao ? <VisibilityOff /> : <Visibility />}
               </span>
             </div>
+
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={handleSalvarPrimeiraEtapa}
+              sx={{ mt: 2 }}
+            >
+              Salvar e Continuar
+            </Button>
+          </div>
+        )}
+
+        {/* Etapa final: outros campos */}
+        {continuar && (
+          <div className="form-group">
+            <input
+              type="text"
+              placeholder="Razão Social / Nome"
+              value={razaoSocial}
+              onChange={(e) => setRazaoSocial(e.target.value)}
+              className="input"
+            />
+            {tipoPessoa === "PJ" && (
+              <input
+                type="text"
+                placeholder="Nome Fantasia"
+                value={nomeFantasia}
+                onChange={(e) => setNomeFantasia(e.target.value)}
+                className="input"
+              />
+            )}
+
+            <div style={{ display: "flex", gap: "1rem" }}>
+              <input
+                type="text"
+                placeholder="CEP"
+                value={cep}
+                onChange={(e) => setCep(e.target.value)}
+                className="input"
+                style={{ flex: 1 }}
+              />
+              <input
+                type="text"
+                placeholder="Estado (UF)"
+                value={estado}
+                onChange={(e) => setEstado(e.target.value)}
+                className="input"
+                style={{ flex: 1 }}
+              />
+            </div>
+
+            <div style={{ display: "flex", gap: "1rem" }}>
+              <input
+                type="text"
+                placeholder="Endereço"
+                value={endereco}
+                onChange={(e) => setEndereco(e.target.value)}
+                className="input"
+                style={{ flex: 2 }}
+              />
+              <input
+                type="text"
+                placeholder="Cidade"
+                value={cidade}
+                onChange={(e) => setCidade(e.target.value)}
+                className="input"
+                style={{ flex: 1 }}
+              />
+            </div>
+
+            <div style={{ display: "flex", gap: "1rem" }}>
+                            <input
+                type="text"
+                placeholder="Responsável Nome"
+                value={responsavelNome}
+                onChange={(e) => setResponsavelNome(e.target.value)}
+                className="input"
+                style={{ flex: 2 }}
+              />
+              <input
+                type="text"
+                placeholder="Responsável CPF"
+                value={responsavelCpf}
+                onChange={(e) => setResponsavelCpf(e.target.value)}
+                className="input"
+                style={{ flex: 1 }}
+              />
+            </div>
+
+            <input
+              type="email"
+              placeholder="E-mail"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="input"
+            />
+            <input
+              type="text"
+              placeholder="Telefone"
+              value={telefone}
+              onChange={(e) => setTelefone(e.target.value)}
+              className="input"
+            />
+
+            <label className="checkbox-label">
+              <input
+                type="checkbox"
+                checked={eProprio}
+                onChange={(e) => setEProprio(e.target.checked)}
+              />
+              É próprio
+            </label>
 
             <div className="form-actions">
               <Button
@@ -298,7 +305,7 @@ export default function CadastroEmpresaPage() {
               <Button
                 variant="contained"
                 color="primary"
-                onClick={handleSalvar}
+                onClick={handleSalvarFinal}
               >
                 Salvar Empresa
               </Button>
@@ -310,4 +317,4 @@ export default function CadastroEmpresaPage() {
   );
 }
 
-//  Fim da página
+// 🔚 Fim da página
