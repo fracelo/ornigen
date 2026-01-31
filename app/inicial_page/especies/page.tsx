@@ -87,6 +87,7 @@ export default function EspeciesPage() {
                 setNomeCientifico(esp.nome_cientifico || "");
                 setNomeIngles(esp.nome_ingles || "");
                 setNomePortugues(esp.nome_portugues || "");
+                setResultados([]); // 🔹 recolhe a lista após seleção
               }}
             >
               {esp.nome_cientifico} - {esp.nome_portugues}

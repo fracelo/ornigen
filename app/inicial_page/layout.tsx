@@ -100,8 +100,8 @@ export default function InicialLayout({ children }: { children: React.ReactNode 
           </ListItemButton>
 
           <ListItemButton
-            selected={pathname === "/especies"}
-            onClick={() => goTo("/especies")}
+            selected={pathname === "/inicial_page/especies"}
+            onClick={() => goTo("/inicial_page/especies")}
           >
             <ListItemIcon>
               <NatureIcon />

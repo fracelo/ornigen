@@ -17,13 +17,33 @@ export default function LoginPage() {
   const { setUsuarioLogado } = useAuth(); // 🔹 pega função para atualizar login
 
   const handleLogin = async () => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) {
-      alert(error.message);
-    } else {
-      setUsuarioLogado(true); // 🔹 seta globalmente
-      router.push("/inicial_page"); // 🔹 redireciona
+    // 1. Login via Supabase Auth
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error || !data.user) {
+      alert(error?.message || "Usuário ou senha inválidos");
+      return;
     }
+
+    // 2. Verificar vínculo na tabela empresa_usuarios
+    const { data: vinculo, error: vinculoError } = await supabase
+      .from("empresa_usuarios")
+      .select("*")
+      .eq("usuario_id", data.user.id)
+      .maybeSingle();
+
+    if (vinculoError) {
+      alert("Erro ao verificar vínculo com empresa: " + vinculoError.message);
+      return;
+    }
+
+    if (!vinculo) {
+      alert("Usuário não vinculado a nenhuma empresa. Solicite convite.");
+      return;
+    }
+
+    // 3. Se tudo certo → loga e redireciona
+    setUsuarioLogado(true);
+    router.push("/inicial_page");
   };
 
   return (
@@ -58,11 +78,9 @@ export default function LoginPage() {
         </div>
 
         <div className="login-links">
-          <div className="login-links">
-            <a href="/recuperar-senha">Recuperar senha</a>
-            <a href="/usuarios">Criar novo cadastro</a>
-          </div>
-
+          <a href="/recuperar-senha">Recuperar senha</a>
+          <a href="/usuarios">Criar novo cadastro</a>
+          <a href="/convites">Convidar usuário</a> {/* 🔹 novo link */}
         </div>
       </div>
     </div>
