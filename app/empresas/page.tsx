@@ -88,7 +88,18 @@ export default function CadastroEmpresaPage() {
       razaoSocialFinal = razaoSocial;
     }
 
-    const { error } = await supabase.from("empresas").insert([
+    const handleSalvarFinal = async () => {
+  let nomeFantasiaFinal = nomeFantasia;
+  let razaoSocialFinal = razaoSocial;
+
+  if (tipoPessoa === "PF") {
+    nomeFantasiaFinal = razaoSocial;
+    razaoSocialFinal = razaoSocial;
+  }
+
+  const { data, error } = await supabase
+    .from("empresas")
+    .insert([
       {
         tipo_pessoa: tipoPessoa,
         nome_fantasia: nomeFantasiaFinal,
@@ -102,18 +113,21 @@ export default function CadastroEmpresaPage() {
         responsavel_cpf: responsavelCpf,
         email,
         telefone,
-        e_proprio: eProprio,
         senha,
       },
-    ]);
+    ])
+    .select("id") // pega o id da empresa criada
+    .single();
 
-    if (error) {
-      alert("Erro ao salvar empresa: " + error.message);
-    } else {
-      alert("Empresa cadastrada com sucesso!");
-      router.push("/loginempresas");
-    }
-  };
+  if (error) {
+    alert("Erro ao salvar empresa: " + error.message);
+  } else {
+    alert("Empresa cadastrada com sucesso!");
+    // 🔹 Redireciona para cadastro de usuário com empresaId
+    router.push(`/usuarios?empresaId=${data.id}`);
+  }
+};
+
 
   return (
     <div className="login-container">
