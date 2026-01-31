@@ -13,6 +13,15 @@ import {
 } from "@mui/material";
 import { Visibility, VisibilityOff } from "@mui/icons-material";
 
+import { useSearchParams } from "next/navigation";
+
+export default function CadastroEmpresaPage() {
+  const searchParams = useSearchParams();
+  const isNovo = searchParams.get("novo") === "true";
+
+  // Se veio do link de login, já começa no fluxo de nova empresa
+  const [continuar, setContinuar] = useState(isNovo);
+
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -330,5 +339,3 @@ export default function CadastroEmpresaPage() {
     </div>
   );
 }
-
-// 🔚 Fim da página
