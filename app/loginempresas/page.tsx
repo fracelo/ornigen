@@ -84,6 +84,7 @@ export default function LoginEmpresasPage() {
             <Link href="/empresas?novo=true" underline="hover">
               Cadastrar nova empresa
             </Link>
+
           </Typography>
         </CardContent>
       </Card>

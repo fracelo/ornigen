@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { createClient } from "@supabase/supabase-js";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Radio,
   RadioGroup,
@@ -13,24 +13,22 @@ import {
 } from "@mui/material";
 import { Visibility, VisibilityOff } from "@mui/icons-material";
 
-import { useSearchParams } from "next/navigation";
-
-export default function CadastroEmpresaPage() {
-  const searchParams = useSearchParams();
-  const isNovo = searchParams.get("novo") === "true";
-
-  // Se veio do link de login, já começa no fluxo de nova empresa
-  const [continuar, setContinuar] = useState(isNovo);
-
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
 export default function CadastroEmpresaPage() {
-  const [tipoPessoa, setTipoPessoa] = useState<"PF" | "PJ" | "">("");
-  const [continuar, setContinuar] = useState(false);
+  // 🔹 Aqui você coloca o trecho logo no começo da função
+  const searchParams = useSearchParams();
+  const isNovo = searchParams.get("novo") === "true";
 
+  // Se veio do link de login, começa na primeira etapa (continuar = false)
+  // Se veio do menu, começa direto na segunda etapa (continuar = true)
+  const [continuar, setContinuar] = useState(!isNovo);
+
+  // 🔹 Depois vêm os outros estados normalmente
+  const [tipoPessoa, setTipoPessoa] = useState<"PF" | "PJ" | "">("");
   const [nomeFantasia, setNomeFantasia] = useState("");
   const [razaoSocial, setRazaoSocial] = useState("");
   const [documento, setDocumento] = useState("");
@@ -97,46 +95,35 @@ export default function CadastroEmpresaPage() {
       razaoSocialFinal = razaoSocial;
     }
 
-    const handleSalvarFinal = async () => {
-  let nomeFantasiaFinal = nomeFantasia;
-  let razaoSocialFinal = razaoSocial;
+    const { data, error } = await supabase
+      .from("empresas")
+      .insert([
+        {
+          tipo_pessoa: tipoPessoa,
+          nome_fantasia: nomeFantasiaFinal,
+          razao_social: razaoSocialFinal,
+          documento,
+          cep,
+          endereco,
+          cidade,
+          estado,
+          responsavel_nome: responsavelNome,
+          responsavel_cpf: responsavelCpf,
+          email,
+          telefone,
+          senha,
+        },
+      ])
+      .select("id")
+      .single();
 
-  if (tipoPessoa === "PF") {
-    nomeFantasiaFinal = razaoSocial;
-    razaoSocialFinal = razaoSocial;
-  }
-
-  const { data, error } = await supabase
-    .from("empresas")
-    .insert([
-      {
-        tipo_pessoa: tipoPessoa,
-        nome_fantasia: nomeFantasiaFinal,
-        razao_social: razaoSocialFinal,
-        documento,
-        cep,
-        endereco,
-        cidade,
-        estado,
-        responsavel_nome: responsavelNome,
-        responsavel_cpf: responsavelCpf,
-        email,
-        telefone,
-        senha,
-      },
-    ])
-    .select("id") // pega o id da empresa criada
-    .single();
-
-  if (error) {
-    alert("Erro ao salvar empresa: " + error.message);
-  } else {
-    alert("Empresa cadastrada com sucesso!");
-    // 🔹 Redireciona para cadastro de usuário com empresaId
-    router.push(`/usuarios?empresaId=${data.id}`);
-  }
-};
-
+    if (error) {
+      alert("Erro ao salvar empresa: " + error.message);
+    } else {
+      alert("Empresa cadastrada com sucesso!");
+      router.push(`/usuarios?empresaId=${data.id}`);
+    }
+  };
 
   return (
     <div className="login-container">
@@ -274,8 +261,8 @@ export default function CadastroEmpresaPage() {
               />
             </div>
 
-            <div style={{ display: "flex", gap: "1rem" }}>
-                            <input
+                        <div style={{ display: "flex", gap: "1rem" }}>
+              <input
                 type="text"
                 placeholder="Responsável Nome"
                 value={responsavelNome}
