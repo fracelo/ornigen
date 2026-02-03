@@ -1,86 +1,81 @@
 "use client";
 
 import { useState } from "react";
-import { createClient } from "@supabase/supabase-js";
+import { supabase } from "../lib/supabaseClient";
 import { useRouter } from "next/navigation";
-import { useAuth } from "../context/authContext"; // 🔹 importa o contexto
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [senha, setSenha] = useState("");
+  const [mensagem, setMensagem] = useState("");
+  const [loading, setLoading] = useState(false);
   const router = useRouter();
-  const { setUsuarioLogado } = useAuth(); // 🔹 pega função para atualizar login
 
   const handleLogin = async () => {
-    // 1. Login via Supabase Auth
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error || !data.user) {
-      alert(error?.message || "Usuário ou senha inválidos");
-      return;
+    setLoading(true);
+    setMensagem("");
+
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password: senha,
+    });
+
+    if (error) {
+      setMensagem("Erro ao fazer login: " + error.message);
+    } else {
+      setMensagem("Login realizado com sucesso!");
+      router.push("/inicial_page"); // 🔹 redireciona após login
     }
 
-    // 2. Verificar vínculo na tabela empresa_usuarios
-    const { data: vinculo, error: vinculoError } = await supabase
-      .from("empresa_usuarios")
-      .select("*")
-      .eq("usuario_id", data.user.id)
-      .maybeSingle();
-
-    if (vinculoError) {
-      alert("Erro ao verificar vínculo com empresa: " + vinculoError.message);
-      return;
-    }
-
-    if (!vinculo) {
-      alert("Usuário não vinculado a nenhuma empresa. Solicite convite.");
-      return;
-    }
-
-    // 3. Se tudo certo → loga e redireciona
-    setUsuarioLogado(true);
-    router.push("/inicial_page");
+    setLoading(false);
   };
 
   return (
     <div className="login-container">
+      {/* Logo */}
       <div className="logo-area">
-        <img src="/logo-ornigen.png" alt="Logo OrniGen" className="logo" />
+        <img src="/logo-ornigen.png" alt="Logo" className="logo" />
       </div>
 
+      {/* Card de login */}
       <div className="card login-card">
-        <h2 className="login-title">Acesse sua conta</h2>
+        <h2 className="login-title">Acessar Conta</h2>
 
         <div className="form-group">
           <input
             type="email"
-            placeholder="E-mail"
+            className="input"
+            placeholder="Digite seu e-mail"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="input"
+            autoComplete="off"
           />
 
           <input
             type="password"
-            placeholder="Senha"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
             className="input"
+            placeholder="Digite sua senha"
+            value={senha}
+            onChange={(e) => setSenha(e.target.value)}
+            autoComplete="off"
           />
-
-          <button onClick={handleLogin} className="btn">
-            Entrar
-          </button>
         </div>
 
+        <button
+          type="button"
+          className="btn"
+          onClick={handleLogin}
+          disabled={loading}
+        >
+          {loading ? "Entrando..." : "Entrar"}
+        </button>
+
+        {mensagem && <p>{mensagem}</p>}
+
+        {/* Links adicionais */}
         <div className="login-links">
+          <a href="/registro">Novo registro</a>
           <a href="/recuperar-senha">Recuperar senha</a>
-          <a href="/usuarios">Criar novo cadastro</a>
-          <a href="/convites">Convidar usuário</a> {/* 🔹 novo link */}
         </div>
       </div>
     </div>

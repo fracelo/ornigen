@@ -57,10 +57,10 @@ export default function Page() {
 
         {/* Link para login de empresas */}
         <Link
-          href="/loginempresas"
+          href="/login"
           style={{ fontSize: "1.5rem", textDecoration: "underline" }}
         >
-          Login de Empresas
+          Login
         </Link>
       </div>
     </div>

@@ -1,188 +1,93 @@
-/* ============================
-   Layout geral
-============================ */
-body {
-  margin: 0;
-  font-family: Arial, Helvetica, sans-serif;
-  background: linear-gradient(to right, #f0f8ff, #e6f2ff);
-  color: #333;
-}
-
-/* Container padrão: celular → logo acima */
+/* ================================
+   Estilos gerais da tela de login
+   ================================ */
 .login-container {
-  display: flex;
-  flex-direction: column; /* padrão: logo acima */
-  align-items: center;
-  justify-content: center;
-  min-height: 100vh;
-  padding: 20px;
+  display: flex;              /* organiza elementos em coluna */
+  flex-direction: column;     /* empilha inputs, botões e links */
+  align-items: center;        /* centraliza horizontalmente */
+  justify-content: center;    /* centraliza verticalmente */
+  min-height: 100vh;          /* ocupa a altura total da tela */
+  padding: 20px;              /* espaço interno */
+  background-color: #f9f9f9;  /* cor de fundo suave */
 }
 
-/* ============================
-   Logo
-============================ */
-.logo-area {
-  display: flex;
-  justify-content: center;
-  margin-bottom: 20px;
+/* ================================
+   Campos de entrada (inputs)
+   ================================ */
+.login-container input {
+  width: 100%;                /* ocupa toda a largura disponível */
+  max-width: 300px;           /* limite de largura para não ficar gigante */
+  padding: 10px;              /* espaço interno */
+  margin-bottom: 10px;        /* separação entre os campos */
+  font-size: 16px;            /* tamanho da fonte */
+  border: 1px solid #ccc;     /* borda leve */
+  border-radius: 4px;         /* cantos arredondados */
 }
 
-.logo {
-  width: 120px;   /* tamanho menor em celular */
-  height: auto;
+/* ================================
+   Botões (login, recuperar senha)
+   ================================ */
+.login-container button {
+  width: auto;                /* ocupa apenas o necessário */
+  height: auto;               /* evita ocupar toda a altura */
+  max-width: 250px;           /* limite de largura */
+  padding: 10px 20px;         /* espaço interno confortável */
+  margin-top: 15px;           /* separação do input acima */
+  font-size: 16px;            /* tamanho da fonte */
+  background-color: #007bff;  /* azul padrão */
+  color: #fff;                /* texto branco */
+  border: none;               /* remove borda padrão */
+  border-radius: 4px;         /* cantos arredondados */
+  cursor: pointer;            /* cursor de clique */
+  align-self: center;         /* centraliza dentro do container */
 }
 
-
-
-/* ============================
-   Card de login
-============================ */
-.card {
-  background: #fff;
-  padding: 30px;
-  border-radius: 12px;
-  box-shadow: 0 6px 20px rgba(0,0,0,0.1);
+/* Efeito hover para o botão */
+.login-container button:hover {
+  background-color: #0056b3;  /* azul mais escuro ao passar o mouse */
 }
 
-.login-card {
-  width: 100%;
-  max-width: 400px;
-  text-align: center;
-}
-
-.login-title {
-  font-size: 22px;
-  margin-bottom: 20px;
-  color: #000;
-}
-
-/* ============================
-   Inputs e botão
-============================ */
-.form-group {
-  display: flex;
-  flex-direction: column;
-}
-
-.input {
-  width: 100%;
-  padding: 12px;
-  margin-bottom: 15px;
-  border: 1px solid #ccc;
-  border-radius: 8px;
-  font-size: 16px;
-  color: #000;              /* texto preto */
-  background-color: #fff;   /* fundo branco */
-}
-
-.input::placeholder {
-  color: #555; /* cinza escuro para diferenciar */
-}
-
-.btn {
-  width: 100%;
-  padding: 14px;
-  background-color: #007bff;
-  color: #fff;
-  font-size: 16px;
-  font-weight: bold;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: background 0.3s ease, transform 0.2s ease;
-}
-
-.btn:hover {
-  background-color: #0056b3;
-  transform: scale(1.03);
-}
-
-/* ============================
-   Links
-============================ */
+/* ================================
+   Links (novo registro, recuperar senha)
+   ================================ */
 .login-links {
-  margin-top: 15px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+  margin-top: 20px;           /* separação do botão */
+  display: flex;              /* organiza em linha */
+  gap: 15px;                  /* espaço entre os links */
+  justify-content: center;    /* centraliza horizontalmente */
 }
 
 .login-links a {
-  color: #007bff;
-  text-decoration: none;
+  color: #007bff;             /* azul padrão */
+  text-decoration: none;      /* remove sublinhado */
+  font-size: 14px;
 }
 
 .login-links a:hover {
-  text-decoration: underline;
+  text-decoration: underline; /* sublinhado ao passar o mouse */
 }
 
-/* ============================
-   Responsividade: desktop → logo à esquerda
-============================ */
-@media (min-width: 768px) {
-  .login-container {
-    flex-direction: row; /* logo + card lado a lado */
-    align-items: center;
-    justify-content: center;
-  }
-
-  .logo-area {
-    margin-right: 40px; /* logo à esquerda do card */
-    margin-bottom: 0;
-    justify-content: flex-end;
-  }
-
-  .logo {
-    width: 250px; /* aumenta em desktop */
-  }
-
-  /* Campo de senha com botão olho */
-.password-field {
-  position: relative;
-  display: flex;
-  align-items: center;
-}
-
-.password-field .input {
-  width: 100%;
-  padding-right: 40px; /* espaço para o botão olho */
-}
-
-.eye-btn {
-  position: absolute;
-  right: 10px;
-  background: none;
-  border: none;
-  cursor: pointer;
-  font-size: 18px;
-}
-
-/* Botões lado a lado */
-.form-actions {
-  display: flex;
-  justify-content: space-between;
-  margin-top: 20px;
-}
-
-.btn {
-  flex: 1;
-  margin: 0 5px;
-}
-
-.login-container {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  min-height: 100vh;
-  background-color: #f5f5f5;
+.logo {
+  width: 100%;        /* ocupa toda a largura disponível */
+  max-width: 400px;   /* limite igual ao card de login */
+  height: auto;       /* mantém proporção da imagem */
+  border-radius: 8px; /* opcional: arredonda cantos para combinar com o card */
 }
 
 .login-card {
+  width: 100%;
+  max-width: 400px;   /* 🔹 mesmo valor do logo */
+  text-align: center;
   background: white;
   padding: 2rem;
   border-radius: 8px;
   box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-  width: 100%;
-  max-width: 900px; /* 🔹 largura máxima no desktop */
 }
+
+/* Labels dos campos de formulário */
+.login-container label {
+  color: #007bff;       /* 🔹 azul padrão */
+  font-weight: bold;    /* 🔹 negrito */
+  margin-bottom: 5px;   /* espaço entre label e input */
+  display: block;       /* garante que fique acima do input */
 }

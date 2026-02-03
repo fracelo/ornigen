@@ -2,92 +2,79 @@
 
 import { useState } from "react";
 import { createClient } from "@supabase/supabase-js";
-import { useRouter } from "next/navigation";
-import { Card, CardContent, TextField, Button, Typography, Link } from "@mui/material";
+import { TextField, Button } from "@mui/material";
+import { useEmpresa } from "../context/empresaContext";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
-export default function LoginEmpresasPage() {
-  const [documento, setDocumento] = useState("");
+export default function LoginEmpresaPage() {
+  const { setEmpresaId } = useEmpresa();
+  const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
-  const router = useRouter();
+  const [mensagem, setMensagem] = useState("");
 
-  const handleLoginEmpresa = async () => {
-    const { data, error } = await supabase
-      .from("empresas")
-      .select("id, razao_social")
-      .eq("documento", documento)
-      .eq("senha", senha)
-      .single();
+  const handleLogin = async () => {
+    // 🔹 autentica empresa pelo Supabase Auth
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password: senha,
+    });
 
-    if (error || !data) {
-      alert("Documento ou senha inválidos!");
+    if (error) {
+      setMensagem("Erro ao logar: " + error.message);
       return;
     }
 
-    router.push(`/login?empresaId=${data.id}`);
+    // 🔹 busca empresa vinculada ao usuário logado
+    const { data: empresa, error: empresaError } = await supabase
+      .from("empresas")
+      .select("id")
+      .eq("email", email)
+      .single();
+
+    if (empresaError || !empresa) {
+      setMensagem("Empresa não encontrada.");
+      return;
+    }
+
+    // 🔹 seta empresaId no contexto global
+    setEmpresaId(empresa.id);
+
+    setMensagem("Login realizado com sucesso!");
   };
 
   return (
-    <div style={{
-      display: "flex",
-      justifyContent: "center",
-      alignItems: "center",
-      height: "100vh",
-      backgroundColor: "#f5f5f5"
-    }}>
-      <Card sx={{ width: 350, boxShadow: 6 }}>
-        <CardContent>
-          <Typography variant="h6" align="center" gutterBottom>
-            Login de Empresa
-          </Typography>
+    <div style={{ maxWidth: "400px", margin: "auto", padding: "2rem" }}>
+      <h2>Login da Empresa</h2>
+      <TextField
+        label="Email da empresa"
+        type="email"
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+        fullWidth
+        margin="normal"
+      />
+      <TextField
+        label="Senha"
+        type="password"
+        value={senha}
+        onChange={(e) => setSenha(e.target.value)}
+        fullWidth
+        margin="normal"
+      />
+      <Button
+        variant="contained"
+        color="primary"
+        onClick={handleLogin}
+        fullWidth
+      >
+        Entrar
+      </Button>
 
-          <TextField
-            label="CPF ou CNPJ"
-            variant="outlined"
-            fullWidth
-            margin="normal"
-            value={documento}
-            onChange={(e) => setDocumento(e.target.value)}
-          />
-
-          <TextField
-            label="Senha"
-            type="password"
-            variant="outlined"
-            fullWidth
-            margin="normal"
-            value={senha}
-            onChange={(e) => setSenha(e.target.value)}
-          />
-
-          <Button
-            variant="contained"
-            color="primary"
-            fullWidth
-            sx={{ mt: 2 }}
-            onClick={handleLoginEmpresa}
-          >
-            Logar
-          </Button>
-
-          <Typography align="center" sx={{ mt: 2 }}>
-            <Link href="/recuperar-senha" underline="hover">
-              Recuperar senha
-            </Link>
-          </Typography>
-
-         <Typography align="center" sx={{ mt: 1 }}>
-            <Link href="/empresas?novo=true" underline="hover">
-              Cadastrar nova empresa
-            </Link>
-
-          </Typography>
-        </CardContent>
-      </Card>
+      {mensagem && <p style={{ marginTop: "1rem" }}>{mensagem}</p>}
     </div>
   );
 }

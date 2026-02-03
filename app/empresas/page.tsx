@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { createClient } from "@supabase/supabase-js";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
@@ -11,7 +11,7 @@ import {
   FormLabel,
   Button,
 } from "@mui/material";
-import { Visibility, VisibilityOff } from "@mui/icons-material";
+import { useEmpresa } from "../context/empresaContext";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -19,15 +19,15 @@ const supabase = createClient(
 );
 
 export default function CadastroEmpresaPage() {
-  // 🔹 Aqui você coloca o trecho logo no começo da função
+  const router = useRouter();
   const searchParams = useSearchParams();
-  const isNovo = searchParams.get("novo") === "true";
+  const isEditar = searchParams.get("editar") === "true";
 
-  // Se veio do link de login, começa na primeira etapa (continuar = false)
-  // Se veio do menu, começa direto na segunda etapa (continuar = true)
-  const [continuar, setContinuar] = useState(!isNovo);
+  const { setEmpresaId } = useEmpresa();
 
-  // 🔹 Depois vêm os outros estados normalmente
+  const [continuar, setContinuar] = useState(isEditar);
+
+  // Estados
   const [tipoPessoa, setTipoPessoa] = useState<"PF" | "PJ" | "">("");
   const [nomeFantasia, setNomeFantasia] = useState("");
   const [razaoSocial, setRazaoSocial] = useState("");
@@ -40,31 +40,46 @@ export default function CadastroEmpresaPage() {
   const [responsavelCpf, setResponsavelCpf] = useState("");
   const [email, setEmail] = useState("");
   const [telefone, setTelefone] = useState("");
-  const [eProprio, setEProprio] = useState(false);
 
-  // Senha
-  const [senha, setSenha] = useState("");
-  const [confirmacaoSenha, setConfirmacaoSenha] = useState("");
-  const [showSenha, setShowSenha] = useState(false);
-  const [showConfirmacao, setShowConfirmacao] = useState(false);
+  // Carregar dados no modo edição
+  useEffect(() => {
+    const carregarEmpresa = async () => {
+      if (isEditar) {
+        const empresaId = searchParams.get("id");
+        if (empresaId) {
+          const { data, error } = await supabase
+            .from("empresas")
+            .select("*")
+            .eq("id", empresaId)
+            .single();
 
-  const router = useRouter();
+          if (error) {
+            alert("Erro ao carregar empresa: " + error.message);
+            return;
+          }
 
-  const formatCPF = (value: string) =>
-    value.replace(/\D/g, "")
-      .replace(/(\d{3})(\d)/, "$1.$2")
-      .replace(/(\d{3})(\d)/, "$1.$2")
-      .replace(/(\d{3})(\d{1,2})$/, "$1-$2")
-      .slice(0, 14);
+          if (data) {
+            setTipoPessoa(data.tipo_pessoa);
+            setRazaoSocial(data.razao_social);
+            setNomeFantasia(data.nome_fantasia);
+            setDocumento(data.documento);
+            setCep(data.cep);
+            setEndereco(data.endereco);
+            setCidade(data.cidade);
+            setEstado(data.estado);
+            setResponsavelNome(data.responsavel_nome);
+            setResponsavelCpf(data.responsavel_cpf);
+            setEmail(data.email);
+            setTelefone(data.telefone);
+          }
+        }
+      }
+    };
 
-  const formatCNPJ = (value: string) =>
-    value.replace(/\D/g, "")
-      .replace(/(\d{2})(\d)/, "$1.$2")
-      .replace(/(\d{3})(\d)/, "$1.$2")
-      .replace(/(\d{3})(\d)/, "$1/$2")
-      .replace(/(\d{4})(\d{1,2})$/, "$1-$2")
-      .slice(0, 18);
+    carregarEmpresa();
+  }, [isEditar, searchParams]);
 
+  // Primeira etapa
   const handleSalvarPrimeiraEtapa = () => {
     if (!tipoPessoa) {
       alert("Selecione o tipo de pessoa.");
@@ -74,18 +89,10 @@ export default function CadastroEmpresaPage() {
       alert("Informe o documento (CPF ou CNPJ).");
       return;
     }
-    if (!senha || !confirmacaoSenha) {
-      alert("Informe a senha e a confirmação.");
-      return;
-    }
-    if (senha !== confirmacaoSenha) {
-      alert("As senhas não coincidem.");
-      return;
-    }
-    // Se passou nas validações, libera os outros campos
     setContinuar(true);
   };
 
+  // Etapa final
   const handleSalvarFinal = async () => {
     let nomeFantasiaFinal = nomeFantasia;
     let razaoSocialFinal = razaoSocial;
@@ -95,44 +102,101 @@ export default function CadastroEmpresaPage() {
       razaoSocialFinal = razaoSocial;
     }
 
-    const { data, error } = await supabase
-      .from("empresas")
-      .insert([
-        {
-          tipo_pessoa: tipoPessoa,
-          nome_fantasia: nomeFantasiaFinal,
-          razao_social: razaoSocialFinal,
-          documento,
-          cep,
-          endereco,
-          cidade,
-          estado,
-          responsavel_nome: responsavelNome,
-          responsavel_cpf: responsavelCpf,
-          email,
-          telefone,
-          senha,
-        },
-      ])
-      .select("id")
-      .single();
+   let result;
+if (isEditar) {
+  const empresaId = searchParams.get("id");
+  result = await supabase
+    .from("empresas")
+    .update({
+      tipo_pessoa: tipoPessoa,
+      nome_fantasia: nomeFantasiaFinal,
+      razao_social: razaoSocialFinal,
+      documento,
+      cep,
+      endereco,
+      cidade,
+      estado,
+      responsavel_nome: responsavelNome,
+      responsavel_cpf: responsavelCpf,
+      email,
+      telefone,
+    })
+    .eq("id", empresaId)   // 🔹 garante que atualiza o registro existente
+    .select("id")
+    .single();
+      } else {
+        result = await supabase
+          .from("empresas")
+          .insert([
+            {
+              tipo_pessoa: tipoPessoa,
+              nome_fantasia: nomeFantasiaFinal,
+              razao_social: razaoSocialFinal,
+              documento,
+              cep,
+              endereco,
+              cidade,
+              estado,
+              responsavel_nome: responsavelNome,
+              responsavel_cpf: responsavelCpf,
+              email,
+              telefone,
+            },
+          ])
+          .select("id")
+          .single();
+      }
 
-    if (error) {
-      alert("Erro ao salvar empresa: " + error.message);
-    } else {
-      alert("Empresa cadastrada com sucesso!");
-      router.push(`/usuarios?empresaId=${data.id}`);
+    const { data, error } = result;
+
+    if (error || !data) {
+      alert("Erro ao salvar empresa: " + (error?.message ?? "sem dados"));
+      return;
     }
+
+    if (!isEditar) {
+      const {
+        data: userData,
+        error: userError,
+      } = await supabase.auth.getUser();
+
+      if (userError || !userData?.user) {
+        alert("Usuário não autenticado");
+        return;
+      }
+
+      const { error: vinculoError } = await supabase.from("empresa_usuarios").insert([
+            {
+              usuario_id: userData.user.id,
+              empresa_id: data.id,
+              papel: "owner",   // ✅ corrigido para usar 'papel'
+            },
+          ]);
+
+      if (vinculoError) {
+        alert("Erro ao vincular usuário à empresa: " + vinculoError.message);
+        return;
+      }
+
+      setEmpresaId(data.id);
+    }
+
+    alert(isEditar ? "Empresa atualizada com sucesso!" : "Empresa cadastrada com sucesso!");
+    router.push("/inicial_page");
   };
 
   return (
     <div className="login-container">
       <div className="card login-card">
-        <h2 className="login-title">Cadastro de Empresa</h2>
+        <h2 className="login-title">{isEditar ? "Editar Empresa" : "Cadastro de Empresa"}</h2>
 
-        {/* Etapa inicial: tipo de pessoa + documento + senha */}
-        {!continuar && (
+        {/* Etapa inicial */}
+        {!continuar && !isEditar && (
           <div className="form-group">
+            <p className="etapa-msg">
+              Para começar, selecione o tipo de pessoa e informe o documento (CPF ou CNPJ).
+            </p>
+
             <FormControl component="fieldset">
               <FormLabel>Tipo de Pessoa</FormLabel>
               <RadioGroup
@@ -148,49 +212,9 @@ export default function CadastroEmpresaPage() {
               type="text"
               placeholder={tipoPessoa === "PJ" ? "CNPJ" : "CPF"}
               value={documento}
-              onChange={(e) =>
-                setDocumento(
-                  tipoPessoa === "PJ"
-                    ? formatCNPJ(e.target.value)
-                    : formatCPF(e.target.value)
-                )
-              }
+              onChange={(e) => setDocumento(e.target.value)}
               className="input"
             />
-
-            {/* Senha */}
-            <div style={{ position: "relative" }}>
-              <input
-                type={showSenha ? "text" : "password"}
-                placeholder="Senha"
-                value={senha}
-                onChange={(e) => setSenha(e.target.value)}
-                className="input"
-              />
-              <span
-                onClick={() => setShowSenha(!showSenha)}
-                style={{ position: "absolute", right: 10, top: 10, cursor: "pointer" }}
-              >
-                {showSenha ? <VisibilityOff /> : <Visibility />}
-              </span>
-            </div>
-
-            {/* Confirmação */}
-            <div style={{ position: "relative" }}>
-              <input
-                type={showConfirmacao ? "text" : "password"}
-                placeholder="Confirme a senha"
-                value={confirmacaoSenha}
-                onChange={(e) => setConfirmacaoSenha(e.target.value)}
-                className="input"
-              />
-              <span
-                onClick={() => setShowConfirmacao(!showConfirmacao)}
-                style={{ position: "absolute", right: 10, top: 10, cursor: "pointer" }}
-              >
-                {showConfirmacao ? <VisibilityOff /> : <Visibility />}
-              </span>
-            </div>
 
             <Button
               variant="contained"
@@ -203,7 +227,7 @@ export default function CadastroEmpresaPage() {
           </div>
         )}
 
-        {/* Etapa final: outros campos */}
+        {/* Etapa final */}
         {continuar && (
           <div className="form-group">
             <input
@@ -223,14 +247,13 @@ export default function CadastroEmpresaPage() {
               />
             )}
 
-            <div style={{ display: "flex", gap: "1rem" }}>
+            <div className="form-row">
               <input
                 type="text"
                 placeholder="CEP"
                 value={cep}
                 onChange={(e) => setCep(e.target.value)}
                 className="input"
-                style={{ flex: 1 }}
               />
               <input
                 type="text"
@@ -238,18 +261,16 @@ export default function CadastroEmpresaPage() {
                 value={estado}
                 onChange={(e) => setEstado(e.target.value)}
                 className="input"
-                style={{ flex: 1 }}
               />
             </div>
 
-            <div style={{ display: "flex", gap: "1rem" }}>
+            <div className="form-row">
               <input
                 type="text"
                 placeholder="Endereço"
                 value={endereco}
                 onChange={(e) => setEndereco(e.target.value)}
                 className="input"
-                style={{ flex: 2 }}
               />
               <input
                 type="text"
@@ -257,18 +278,16 @@ export default function CadastroEmpresaPage() {
                 value={cidade}
                 onChange={(e) => setCidade(e.target.value)}
                 className="input"
-                style={{ flex: 1 }}
               />
             </div>
 
-                        <div style={{ display: "flex", gap: "1rem" }}>
+            <div className="form-row">
               <input
                 type="text"
                 placeholder="Responsável Nome"
                 value={responsavelNome}
                 onChange={(e) => setResponsavelNome(e.target.value)}
                 className="input"
-                style={{ flex: 2 }}
               />
               <input
                 type="text"
@@ -276,11 +295,10 @@ export default function CadastroEmpresaPage() {
                 value={responsavelCpf}
                 onChange={(e) => setResponsavelCpf(e.target.value)}
                 className="input"
-                style={{ flex: 1 }}
               />
             </div>
 
-            <input
+                        <input
               type="email"
               placeholder="E-mail"
               value={email}
@@ -295,30 +313,24 @@ export default function CadastroEmpresaPage() {
               className="input"
             />
 
-            <label className="checkbox-label">
-              <input
-                type="checkbox"
-                checked={eProprio}
-                onChange={(e) => setEProprio(e.target.checked)}
-              />
-              É próprio
-            </label>
-
             <div className="form-actions">
-              <Button
-                variant="outlined"
-                color="secondary"
-                onClick={() => setContinuar(false)}
-              >
-                Voltar
-              </Button>
-              <Button
-                variant="contained"
-                color="primary"
+              {!isEditar && (
+                <Button
+                  variant="outlined"
+                  color="secondary"
+                  onClick={() => setContinuar(false)}
+                >
+                  Voltar
+                </Button>
+              )}
+              <button 
+                type="button" 
+                className="btn btn-primary" 
                 onClick={handleSalvarFinal}
               >
-                Salvar Empresa
-              </Button>
+                {isEditar ? "Atualizar Empresa" : "Cadastrar Empresa"}
+              </button>
+
             </div>
           </div>
         )}
