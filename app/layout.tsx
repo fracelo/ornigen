@@ -5,7 +5,6 @@ import "./app.css";
 import { AuthProvider } from "./context/authContext";
 import { EmpresaProvider } from "./context/empresaContext";
 
-// 🔹 fontes primeiro
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
@@ -16,13 +15,11 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-// 🔹 metadata antes do layout
 export const metadata: Metadata = {
   title: "OrniGen",
   description: "Plataforma de Genealogia Ornitológica",
 };
 
-// 🔹 apenas UM export default
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="pt-BR">

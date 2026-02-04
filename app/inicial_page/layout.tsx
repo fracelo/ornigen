@@ -11,6 +11,7 @@ import {
   ListItemIcon,
   ListItemText,
   ListItemButton,
+  Collapse,
 } from "@mui/material";
 import MenuIcon from "@mui/icons-material/Menu";
 import HomeIcon from "@mui/icons-material/Home";
@@ -18,16 +19,20 @@ import NatureIcon from "@mui/icons-material/Nature";
 import PetsIcon from "@mui/icons-material/Pets";
 import LogoutIcon from "@mui/icons-material/Logout";
 import SettingsIcon from "@mui/icons-material/Settings";
+import ExpandLess from "@mui/icons-material/ExpandLess";
+import ExpandMore from "@mui/icons-material/ExpandMore";
 import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "../context/authContext";
+import { useEmpresa } from "../context/empresaContext";
 
 export default function InicialLayout({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
+  const [openPassaros, setOpenPassaros] = useState(false);
   const { usuarioLogado, setUsuarioLogado } = useAuth();
+  const { nomeEmpresa } = useEmpresa();
   const router = useRouter();
   const pathname = usePathname();
 
-  // 🔹 Redirecionamento seguro
   useEffect(() => {
     if (!usuarioLogado) {
       router.push("/login");
@@ -35,7 +40,7 @@ export default function InicialLayout({ children }: { children: React.ReactNode 
   }, [usuarioLogado, router]);
 
   if (!usuarioLogado) {
-    return null; // evita renderizar conteúdo antes do redirect
+    return null;
   }
 
   const goTo = (path: string) => {
@@ -50,11 +55,10 @@ export default function InicialLayout({ children }: { children: React.ReactNode 
   };
 
   return (
-    <div>
-      {/* 🔹 Barra superior */}
-      <AppBar position="static">
+    <div style={{ backgroundColor: "#fff", minHeight: "100vh" }}>
+      {/* 🔹 Barra superior azul */}
+      <AppBar position="static" sx={{ backgroundColor: "#1976d2" }}>
         <Toolbar>
-          {/* Ícone do menu sanduíche à esquerda */}
           <IconButton
             edge="start"
             color="inherit"
@@ -64,19 +68,17 @@ export default function InicialLayout({ children }: { children: React.ReactNode 
             <MenuIcon sx={{ fontSize: 32 }} />
           </IconButton>
 
-          {/* Título central */}
           <Typography variant="h6" sx={{ flexGrow: 1 }}>
-            OrniGen
+            OrniGen {nomeEmpresa ? ` - ${nomeEmpresa}` : ""}
           </Typography>
 
-          {/* Ícone de engrenagem à direita */}
-          <IconButton color="inherit" onClick={() => alert("Configurações futuras")}>
+          <IconButton color="inherit" onClick={() => router.push("/empresas")}>
             <SettingsIcon />
           </IconButton>
         </Toolbar>
       </AppBar>
 
-      {/* 🔹 Drawer lateral */}
+      {/* 🔹 Drawer lateral azul */}
       <Drawer
         variant="temporary"
         anchor="left"
@@ -85,6 +87,8 @@ export default function InicialLayout({ children }: { children: React.ReactNode 
         sx={{
           "& .MuiDrawer-paper": {
             width: 220,
+            backgroundColor: "#1976d2",
+            color: "#fff",
           },
         }}
       >
@@ -94,7 +98,7 @@ export default function InicialLayout({ children }: { children: React.ReactNode 
             onClick={() => goTo("/inicial_page/criadouros")}
           >
             <ListItemIcon>
-              <HomeIcon />
+              <HomeIcon sx={{ color: "#fff" }} />
             </ListItemIcon>
             <ListItemText primary="Criadouros" />
           </ListItemButton>
@@ -104,24 +108,51 @@ export default function InicialLayout({ children }: { children: React.ReactNode 
             onClick={() => goTo("/inicial_page/especies")}
           >
             <ListItemIcon>
-              <NatureIcon />
+              <NatureIcon sx={{ color: "#fff" }} />
             </ListItemIcon>
             <ListItemText primary="Espécies" />
           </ListItemButton>
 
-          <ListItemButton
-            selected={pathname === "/passaros"}
-            onClick={() => goTo("/passaros")}
-          >
+          {/* 🔹 Pássaros com submenu */}
+          <ListItemButton onClick={() => setOpenPassaros(!openPassaros)}>
             <ListItemIcon>
-              <PetsIcon />
+              <PetsIcon sx={{ color: "#fff" }} />
             </ListItemIcon>
             <ListItemText primary="Pássaros" />
+            {openPassaros ? <ExpandLess /> : <ExpandMore />}
           </ListItemButton>
+
+          <Collapse in={openPassaros} timeout="auto" unmountOnExit>
+            <List component="div" disablePadding>
+              <ListItemButton
+                sx={{ pl: 4 }}
+                selected={pathname === "/inicial_page/passaros"}
+                onClick={() => goTo("/inicial_page/passaros")}
+              >
+                <ListItemText primary="Inclusão" />
+              </ListItemButton>
+
+              <ListItemButton
+                sx={{ pl: 4 }}
+                selected={pathname === "/inicial_page/passaros_recebimento"}
+                onClick={() => goTo("/inicial_page/passaros_recebimento")}
+              >
+                <ListItemText primary="Recebimento" />
+              </ListItemButton>
+
+              <ListItemButton
+                sx={{ pl: 4 }}
+                selected={pathname === "/inicial_page/passaros_transferencia"}
+                onClick={() => goTo("/inicial_page/passaros_transferencia")}
+              >
+                <ListItemText primary="Transferência" />
+              </ListItemButton>
+            </List>
+          </Collapse>
 
           <ListItemButton onClick={handleLogout}>
             <ListItemIcon>
-              <LogoutIcon />
+              <LogoutIcon sx={{ color: "#fff" }} />
             </ListItemIcon>
             <ListItemText primary="Sair" />
           </ListItemButton>

@@ -1,28 +1,29 @@
 "use client";
-
-import { createContext, useContext, useState, ReactNode } from "react";
+import { createContext, useContext, useState } from "react";
 
 type EmpresaContextType = {
   empresaId: string | null;
   setEmpresaId: (id: string | null) => void;
+  nomeEmpresa: string | null; // ✅ padronizado
+  setNomeEmpresa: (nome: string | null) => void;
 };
 
-const EmpresaContext = createContext<EmpresaContextType | undefined>(undefined);
+const EmpresaContext = createContext<EmpresaContextType>({
+  empresaId: null,
+  setEmpresaId: () => {},
+  nomeEmpresa: null,
+  setNomeEmpresa: () => {},
+});
 
-export function EmpresaProvider({ children }: { children: ReactNode }) {
+export const EmpresaProvider = ({ children }: { children: React.ReactNode }) => {
   const [empresaId, setEmpresaId] = useState<string | null>(null);
+  const [nomeEmpresa, setNomeEmpresa] = useState<string | null>(null);
 
   return (
-    <EmpresaContext.Provider value={{ empresaId, setEmpresaId }}>
+    <EmpresaContext.Provider value={{ empresaId, setEmpresaId, nomeEmpresa, setNomeEmpresa }}>
       {children}
     </EmpresaContext.Provider>
   );
-}
+};
 
-export function useEmpresa() {
-  const context = useContext(EmpresaContext);
-  if (!context) {
-    throw new Error("useEmpresa deve ser usado dentro de EmpresaProvider");
-  }
-  return context;
-}
+export const useEmpresa = () => useContext(EmpresaContext);

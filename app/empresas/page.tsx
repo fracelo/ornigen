@@ -2,16 +2,10 @@
 
 import { useState, useEffect } from "react";
 import { createClient } from "@supabase/supabase-js";
-import { useRouter, useSearchParams } from "next/navigation";
-import {
-  Radio,
-  RadioGroup,
-  FormControlLabel,
-  FormControl,
-  FormLabel,
-  Button,
-} from "@mui/material";
+import { useRouter } from "next/navigation";
+import { Button } from "@mui/material";
 import { useEmpresa } from "../context/empresaContext";
+import { formataDados } from "../lib/formataDados";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -20,11 +14,9 @@ const supabase = createClient(
 
 export default function CadastroEmpresaPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const isEditar = searchParams.get("editar") === "true";
+  const { empresaId, setEmpresaId } = useEmpresa();
 
-  const { setEmpresaId } = useEmpresa();
-
+  const isEditar = !!empresaId;
   const [continuar, setContinuar] = useState(isEditar);
 
   // Estados
@@ -33,9 +25,11 @@ export default function CadastroEmpresaPage() {
   const [razaoSocial, setRazaoSocial] = useState("");
   const [documento, setDocumento] = useState("");
   const [cep, setCep] = useState("");
-  const [endereco, setEndereco] = useState("");
   const [cidade, setCidade] = useState("");
   const [estado, setEstado] = useState("");
+  const [endereco, setEndereco] = useState("");
+  const [numero, setNumero] = useState("");
+  const [bairro, setBairro] = useState("");
   const [responsavelNome, setResponsavelNome] = useState("");
   const [responsavelCpf, setResponsavelCpf] = useState("");
   const [email, setEmail] = useState("");
@@ -44,40 +38,39 @@ export default function CadastroEmpresaPage() {
   // Carregar dados no modo edição
   useEffect(() => {
     const carregarEmpresa = async () => {
-      if (isEditar) {
-        const empresaId = searchParams.get("id");
-        if (empresaId) {
-          const { data, error } = await supabase
-            .from("empresas")
-            .select("*")
-            .eq("id", empresaId)
-            .single();
+      if (isEditar && empresaId) {
+        const { data, error } = await supabase
+          .from("empresas")
+          .select("*")
+          .eq("id", empresaId)
+          .single();
 
-          if (error) {
-            alert("Erro ao carregar empresa: " + error.message);
-            return;
-          }
+        if (error) {
+          alert("Erro ao carregar empresa: " + error.message);
+          return;
+        }
 
-          if (data) {
-            setTipoPessoa(data.tipo_pessoa);
-            setRazaoSocial(data.razao_social);
-            setNomeFantasia(data.nome_fantasia);
-            setDocumento(data.documento);
-            setCep(data.cep);
-            setEndereco(data.endereco);
-            setCidade(data.cidade);
-            setEstado(data.estado);
-            setResponsavelNome(data.responsavel_nome);
-            setResponsavelCpf(data.responsavel_cpf);
-            setEmail(data.email);
-            setTelefone(data.telefone);
-          }
+        if (data) {
+          setTipoPessoa(data.tipo_pessoa);
+          setRazaoSocial(data.razao_social);
+          setNomeFantasia(data.nome_fantasia);
+          setDocumento(data.documento);
+          setCep(data.cep);
+          setEndereco(data.endereco);
+          setNumero(data.numero ?? "");
+          setBairro(data.bairro ?? "");
+          setCidade(data.cidade);
+          setEstado(data.estado);
+          setResponsavelNome(data.responsavel_nome);
+          setResponsavelCpf(data.responsavel_cpf);
+          setEmail(data.email);
+          setTelefone(data.telefone);
         }
       }
     };
 
     carregarEmpresa();
-  }, [isEditar, searchParams]);
+  }, [isEditar, empresaId]);
 
   // Primeira etapa
   const handleSalvarPrimeiraEtapa = () => {
@@ -102,50 +95,53 @@ export default function CadastroEmpresaPage() {
       razaoSocialFinal = razaoSocial;
     }
 
-   let result;
-if (isEditar) {
-  const empresaId = searchParams.get("id");
-  result = await supabase
-    .from("empresas")
-    .update({
-      tipo_pessoa: tipoPessoa,
-      nome_fantasia: nomeFantasiaFinal,
-      razao_social: razaoSocialFinal,
-      documento,
-      cep,
-      endereco,
-      cidade,
-      estado,
-      responsavel_nome: responsavelNome,
-      responsavel_cpf: responsavelCpf,
-      email,
-      telefone,
-    })
-    .eq("id", empresaId)   // 🔹 garante que atualiza o registro existente
-    .select("id")
-    .single();
-      } else {
-        result = await supabase
-          .from("empresas")
-          .insert([
-            {
-              tipo_pessoa: tipoPessoa,
-              nome_fantasia: nomeFantasiaFinal,
-              razao_social: razaoSocialFinal,
-              documento,
-              cep,
-              endereco,
-              cidade,
-              estado,
-              responsavel_nome: responsavelNome,
-              responsavel_cpf: responsavelCpf,
-              email,
-              telefone,
-            },
-          ])
-          .select("id")
-          .single();
-      }
+    let result;
+    if (isEditar && empresaId) {
+      result = await supabase
+        .from("empresas")
+        .update({
+          tipo_pessoa: tipoPessoa,
+          nome_fantasia: nomeFantasiaFinal,
+          razao_social: razaoSocialFinal,
+          documento,
+          cep,
+          endereco,
+          numero,
+          bairro,
+          cidade,
+          estado,
+          responsavel_nome: responsavelNome,
+          responsavel_cpf: responsavelCpf,
+          email,
+          telefone,
+        })
+        .eq("id", empresaId)
+        .select("id")
+        .single();
+    } else {
+      result = await supabase
+        .from("empresas")
+        .insert([
+          {
+            tipo_pessoa: tipoPessoa,
+            nome_fantasia: nomeFantasiaFinal,
+            razao_social: razaoSocialFinal,
+            documento,
+            cep,
+            endereco,
+            numero,
+            bairro,
+            cidade,
+            estado,
+            responsavel_nome: responsavelNome,
+            responsavel_cpf: responsavelCpf,
+            email,
+            telefone,
+          },
+        ])
+        .select("id")
+        .single();
+    }
 
     const { data, error } = result;
 
@@ -155,10 +151,7 @@ if (isEditar) {
     }
 
     if (!isEditar) {
-      const {
-        data: userData,
-        error: userError,
-      } = await supabase.auth.getUser();
+      const { data: userData, error: userError } = await supabase.auth.getUser();
 
       if (userError || !userData?.user) {
         alert("Usuário não autenticado");
@@ -166,12 +159,12 @@ if (isEditar) {
       }
 
       const { error: vinculoError } = await supabase.from("empresa_usuarios").insert([
-            {
-              usuario_id: userData.user.id,
-              empresa_id: data.id,
-              papel: "owner",   // ✅ corrigido para usar 'papel'
-            },
-          ]);
+        {
+          usuario_id: userData.user.id,
+          empresa_id: data.id,
+          papel: "owner",
+        },
+      ]);
 
       if (vinculoError) {
         alert("Erro ao vincular usuário à empresa: " + vinculoError.message);
@@ -186,151 +179,214 @@ if (isEditar) {
   };
 
   return (
-    <div className="login-container">
-      <div className="card login-card">
-        <h2 className="login-title">{isEditar ? "Editar Empresa" : "Cadastro de Empresa"}</h2>
+    <div style={{ display: "flex", justifyContent: "center", padding: "20px" }}>
+      <div style={{ width: "700px", background: "#fff", padding: "20px", borderRadius: "8px" }}>
+        <h2 style={{ color: "#0d47a1", marginBottom: "20px" }}>
+          {isEditar ? "Editar Empresa" : "Cadastro de Empresa"}
+        </h2>
 
         {/* Etapa inicial */}
         {!continuar && !isEditar && (
-          <div className="form-group">
-            <p className="etapa-msg">
-              Para começar, selecione o tipo de pessoa e informe o documento (CPF ou CNPJ).
-            </p>
+          <div style={{ display: "flex", flexDirection: "column", gap: "15px" }}>
+            <p>Selecione o tipo de pessoa e informe o documento.</p>
 
-            <FormControl component="fieldset">
-              <FormLabel>Tipo de Pessoa</FormLabel>
-              <RadioGroup
-                value={tipoPessoa}
-                onChange={(e) => setTipoPessoa(e.target.value as "PF" | "PJ")}
-              >
-                <FormControlLabel value="PF" control={<Radio />} label="Pessoa Física" />
-                <FormControlLabel value="PJ" control={<Radio />} label="Pessoa Jurídica" />
-              </RadioGroup>
-            </FormControl>
+            <div>
+              <label>Tipo de Pessoa</label>
+              <div style={{ display: "flex", gap: "20px" }}>
+                <label>
+                  <input
+                    type="radio"
+                    value="PF"
+                    checked={tipoPessoa === "PF"}
+                    onChange={() => setTipoPessoa("PF")}
+                  />
+                  Pessoa Física
+                </label>
+                <label>
+                  <input
+                    type="radio"
+                    value="PJ"
+                    checked={tipoPessoa === "PJ"}
+                    onChange={() => setTipoPessoa("PJ")}
+                  />
+                  Pessoa Jurídica
+                </label>
+              </div>
+            </div>
 
-            <input
-              type="text"
-              placeholder={tipoPessoa === "PJ" ? "CNPJ" : "CPF"}
-              value={documento}
-              onChange={(e) => setDocumento(e.target.value)}
-              className="input"
-            />
+            <div style={{ display: "flex", flexDirection: "column" }}>
+              <label>{tipoPessoa === "PJ" ? "CNPJ" : "CPF"}</label>
+              <input
+                type="text"
+                value={formataDados(documento, tipoPessoa === "PJ" ? "cnpj" : "cpf")}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDocumento(e.target.value)}
+              />
+            </div>
 
-            <Button
-              variant="contained"
-              color="primary"
-              onClick={handleSalvarPrimeiraEtapa}
-              sx={{ mt: 2 }}
-            >
+            <Button variant="contained" color="primary" onClick={handleSalvarPrimeiraEtapa}>
               Salvar e Continuar
             </Button>
           </div>
         )}
 
         {/* Etapa final */}
-        {continuar && (
-          <div className="form-group">
-            <input
-              type="text"
-              placeholder="Razão Social / Nome"
-              value={razaoSocial}
-              onChange={(e) => setRazaoSocial(e.target.value)}
-              className="input"
-            />
-            {tipoPessoa === "PJ" && (
+        {(continuar || isEditar) && (
+          <div style={{ display: "flex", flexDirection: "column", gap: "15px" }}>
+            <div style={{ display: "flex", flexDirection: "column" }}>
+              <label>Nome / Razão Social</label>
               <input
                 type="text"
-                placeholder="Nome Fantasia"
-                value={nomeFantasia}
-                onChange={(e) => setNomeFantasia(e.target.value)}
-                className="input"
+                value={razaoSocial}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setRazaoSocial(e.target.value)}
               />
+            </div>
+
+            {tipoPessoa === "PJ" && (
+              <div style={{ display: "flex", flexDirection: "column" }}>
+                <label>Nome Fantasia</label>
+                <input
+                  type="text"
+                  value={nomeFantasia}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNomeFantasia(e.target.value)}
+                />
+              </div>
             )}
 
-            <div className="form-row">
+            <div style={{ display: "flex", flexDirection: "column" }}>
+              <label>{tipoPessoa === "PJ" ? "CNPJ" : "CPF"}</label>
               <input
                 type="text"
-                placeholder="CEP"
-                value={cep}
-                onChange={(e) => setCep(e.target.value)}
-                className="input"
-              />
-              <input
-                type="text"
-                placeholder="Estado (UF)"
-                value={estado}
-                onChange={(e) => setEstado(e.target.value)}
-                className="input"
+                value={formataDados(documento, tipoPessoa === "PJ" ? "cnpj" : "cpf")}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDocumento(e.target.value)}
               />
             </div>
 
-            <div className="form-row">
-              <input
-                type="text"
-                placeholder="Endereço"
-                value={endereco}
-                onChange={(e) => setEndereco(e.target.value)}
-                className="input"
-              />
-              <input
-                type="text"
-                placeholder="Cidade"
-                value={cidade}
-                onChange={(e) => setCidade(e.target.value)}
-                className="input"
-              />
+                      <div style={{ display: "flex", gap: "15px" }}>
+              <div style={{ flex: "0 0 120px", display: "flex", flexDirection: "column" }}>
+                <label>CEP</label>
+                <input
+                  type="text"
+                  value={formataDados(cep, "cep")}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCep(e.target.value)}
+                />
+              </div>
+
+              <div style={{ flex: "1", display: "flex", flexDirection: "column" }}>
+                <label>Cidade</label>
+                <input
+                  type="text"
+                  value={cidade}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCidade(e.target.value)}
+                />
+              </div>
+
+              <div style={{ flex: "0 0 60px", display: "flex", flexDirection: "column" }}>
+                <label>UF</label>
+                <input
+                  type="text"
+                  maxLength={2}
+                  value={estado}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                    setEstado(e.target.value.toUpperCase())
+                  }
+                />
+              </div>
             </div>
 
-            <div className="form-row">
-              <input
-                type="text"
-                placeholder="Responsável Nome"
-                value={responsavelNome}
-                onChange={(e) => setResponsavelNome(e.target.value)}
-                className="input"
-              />
-              <input
-                type="text"
-                placeholder="Responsável CPF"
-                value={responsavelCpf}
-                onChange={(e) => setResponsavelCpf(e.target.value)}
-                className="input"
-              />
+            {/* Endereço + Número + Bairro */}
+            <div style={{ display: "flex", gap: "15px" }}>
+              <div style={{ flex: "2", display: "flex", flexDirection: "column" }}>
+                <label>Endereço</label>
+                <input
+                  type="text"
+                  value={endereco}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEndereco(e.target.value)}
+                />
+              </div>
+
+              <div style={{ flex: "0 0 80px", display: "flex", flexDirection: "column" }}>
+                <label>Número</label>
+                <input
+                  type="text"
+                  maxLength={8}
+                  value={numero}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNumero(e.target.value)}
+                />
+              </div>
+
+              <div style={{ flex: "1", display: "flex", flexDirection: "column" }}>
+                <label>Bairro</label>
+                <input
+                  type="text"
+                  value={bairro}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setBairro(e.target.value)}
+                />
+              </div>
             </div>
 
-                        <input
-              type="email"
-              placeholder="E-mail"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="input"
-            />
-            <input
-              type="text"
-              placeholder="Telefone"
-              value={telefone}
-              onChange={(e) => setTelefone(e.target.value)}
-              className="input"
-            />
+            {/* Responsável Nome + CPF */}
+            <div style={{ display: "flex", gap: "15px" }}>
+              <div style={{ flex: "1", display: "flex", flexDirection: "column" }}>
+                <label>Responsável Nome</label>
+                <input
+                  type="text"
+                  value={responsavelNome}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                    setResponsavelNome(e.target.value)
+                  }
+                />
+              </div>
 
-            <div className="form-actions">
+              <div style={{ flex: "0 0 200px", display: "flex", flexDirection: "column" }}>
+                <label>Responsável CPF</label>
+                <input
+                  type="text"
+                  value={formataDados(responsavelCpf, "cpf")}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                    setResponsavelCpf(e.target.value)
+                  }
+                />
+              </div>
+            </div>
+
+            {/* Email + Celular */}
+            <div style={{ display: "flex", gap: "15px" }}>
+              <div style={{ flex: "2", display: "flex", flexDirection: "column" }}>
+                <label>E-mail</label>
+                <input
+                  type="email"
+                  value={formataDados(email, "email")}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
+                />
+              </div>
+
+              <div style={{ flex: "1", display: "flex", flexDirection: "column" }}>
+                <label>Celular</label>
+                <input
+                  type="text"
+                  value={formataDados(telefone, "celular")}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setTelefone(e.target.value)}
+                />
+              </div>
+            </div>
+
+            {/* Botões */}
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "flex-end",
+                gap: "10px",
+                marginTop: "20px",
+              }}
+            >
               {!isEditar && (
-                <Button
-                  variant="outlined"
-                  color="secondary"
-                  onClick={() => setContinuar(false)}
-                >
+                <Button variant="outlined" color="secondary" onClick={() => setContinuar(false)}>
                   Voltar
                 </Button>
               )}
-              <button 
-                type="button" 
-                className="btn btn-primary" 
-                onClick={handleSalvarFinal}
-              >
+              <Button variant="contained" color="primary" onClick={handleSalvarFinal}>
                 {isEditar ? "Atualizar Empresa" : "Cadastrar Empresa"}
-              </button>
-
+              </Button>
             </div>
           </div>
         )}

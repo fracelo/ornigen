@@ -1,26 +1,47 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --background: #ffffff;          /* fundo branco */
+  --foreground: #171717;          /* texto padrão preto */
+  --label-color: #0d47a1;         /* azul escuro */
+  --input-text-color: #0d47a1;    /* azul escuro */
+  --button-bg: #0d47a1;           /* azul escuro */
+  --button-text: #ffffff;         /* branco */
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+/* Labels sempre azul escuro */
+label {
+  color: var(--label-color);
+  font-weight: 600;
+}
+
+/* Inputs com texto azul escuro e borda cinza */
+input {
+  color: var(--input-text-color);
+  border: 1px solid #ccc;
+  padding: 10px;
+  border-radius: 8px;
+}
+
+/* Placeholder também azul escuro */
+input::placeholder {
+  color: var(--input-text-color);
+  opacity: 0.7;
+}
+
+/* Botões azul escuro com texto branco */
+button {
+  background-color: var(--button-bg);
+  color: var(--button-text);
+  font-weight: bold;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 20px;
+  cursor: pointer;
 }
