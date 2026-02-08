@@ -93,22 +93,35 @@ export default function InicialLayout({ children }: { children: React.ReactNode 
         }}
       >
         <List>
+          {/* 🔹 Primeiro item: Home */}
+          <ListItemButton
+            selected={pathname === "/"}
+            onClick={() => goTo("/")}
+          >
+            <ListItemIcon>
+              <HomeIcon sx={{ color: "#fff" }} />
+            </ListItemIcon>
+            <ListItemText primary="Home" />
+          </ListItemButton>
+
+          {/* 🔹 Criadouros */}
           <ListItemButton
             selected={pathname === "/inicial_page/criadouros"}
             onClick={() => goTo("/inicial_page/criadouros")}
           >
             <ListItemIcon>
-              <HomeIcon sx={{ color: "#fff" }} />
+              <NatureIcon sx={{ color: "#fff" }} />
             </ListItemIcon>
             <ListItemText primary="Criadouros" />
           </ListItemButton>
 
+          {/* 🔹 Espécies */}
           <ListItemButton
             selected={pathname === "/inicial_page/especies"}
             onClick={() => goTo("/inicial_page/especies")}
           >
             <ListItemIcon>
-              <NatureIcon sx={{ color: "#fff" }} />
+              <PetsIcon sx={{ color: "#fff" }} />
             </ListItemIcon>
             <ListItemText primary="Espécies" />
           </ListItemButton>
@@ -150,6 +163,7 @@ export default function InicialLayout({ children }: { children: React.ReactNode 
             </List>
           </Collapse>
 
+          {/* 🔹 Logout */}
           <ListItemButton onClick={handleLogout}>
             <ListItemIcon>
               <LogoutIcon sx={{ color: "#fff" }} />
