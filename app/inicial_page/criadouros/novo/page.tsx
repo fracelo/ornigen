@@ -7,6 +7,7 @@ import {
   Box, Button, TextField, Radio, RadioGroup,
   FormControlLabel, FormControl, FormLabel, Checkbox, Typography
 } from "@mui/material";
+import { useEmpresa } from "../../../context/empresaContext"; // 🔹 caminho ajustado
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -15,6 +16,8 @@ const supabase = createClient(
 
 export default function NovoCriadouro() {
   const router = useRouter();
+  const { empresaId } = useEmpresa(); // 🔹 pega o UUID da empresa logada
+
   const [tipoPessoa, setTipoPessoa] = useState<"PF" | "PJ" | "">("");
   const [continuar, setContinuar] = useState(false);
   const [razaoSocial, setRazaoSocial] = useState("");
@@ -44,6 +47,11 @@ export default function NovoCriadouro() {
     .slice(0, 18);
 
   const handleSalvar = async () => {
+    if (!empresaId) {
+      alert("Nenhuma empresa selecionada no contexto. Faça login novamente.");
+      return;
+    }
+
     let nomeFantasiaFinal = nomeFantasia;
     let razaoSocialFinal = razaoSocial;
 
@@ -56,10 +64,17 @@ export default function NovoCriadouro() {
       tipo_pessoa: tipoPessoa,
       nome_fantasia: nomeFantasiaFinal,
       razao_social: razaoSocialFinal,
-      documento, cep, endereco, cidade, estado,
+      documento,
+      cep,
+      endereco,
+      cidade,
+      estado,
       responsavel_nome: responsavelNome,
       responsavel_cpf: responsavelCpf,
-      email, telefone, e_proprio: eProprio,
+      email,
+      telefone,
+      e_proprio: eProprio,
+      empresa_uuid: empresaId, // 🔹 salva o UUID da empresa logada
     }]);
 
     if (error) {
@@ -72,25 +87,32 @@ export default function NovoCriadouro() {
 
   return (
     <Box sx={{ p: 4 }}>
-      <Typography variant="h4" sx={{ mb: 3, color: "#0D47A1", fontWeight: "bold" }}>
+      <Typography variant="h4" sx={{ mb: 3, color: "#0D47A1", fontWeight: "bold", textAlign: "center" }}>
         Novo Criadouro
       </Typography>
 
       {!continuar && (
-        <FormControl>
-          <FormLabel>Tipo de Pessoa</FormLabel>
-          <RadioGroup
-            value={tipoPessoa}
-            onChange={(e) => setTipoPessoa(e.target.value as "PF" | "PJ")}
-            row
-          >
-            <FormControlLabel value="PF" control={<Radio />} label="Pessoa Física" />
-            <FormControlLabel value="PJ" control={<Radio />} label="Pessoa Jurídica" />
-          </RadioGroup>
-          <Button variant="contained" sx={{ mt: 2 }} onClick={() => tipoPessoa ? setContinuar(true) : alert("Selecione PF ou PJ")}>
-            Continuar
-          </Button>
-        </FormControl>
+        <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", height: "60vh" }}>
+          <FormControl>
+            <FormLabel sx={{ textAlign: "center", mb: 2 }}>Tipo de Pessoa</FormLabel>
+            <RadioGroup
+              value={tipoPessoa}
+              onChange={(e) => setTipoPessoa(e.target.value as "PF" | "PJ")}
+              row
+              sx={{ justifyContent: "center" }}
+            >
+              <FormControlLabel value="PF" control={<Radio />} label="Pessoa Física" />
+              <FormControlLabel value="PJ" control={<Radio />} label="Pessoa Jurídica" />
+            </RadioGroup>
+            <Button
+              variant="contained"
+              sx={{ mt: 3, alignSelf: "center" }}
+              onClick={() => tipoPessoa ? setContinuar(true) : alert("Selecione PF ou PJ")}
+            >
+              Continuar
+            </Button>
+          </FormControl>
+        </Box>
       )}
 
       {continuar && (
@@ -109,7 +131,6 @@ export default function NovoCriadouro() {
             </>
           )}
 
-          {/* Linha com CEP, Estado e Cidade */}
           <Box sx={{ display: "flex", gap: 2 }}>
             <TextField label="CEP" value={cep} onChange={(e) => setCep(e.target.value)} sx={{ width: "30%" }} />
             <TextField label="Estado" value={estado} onChange={(e) => setEstado(e.target.value)} sx={{ width: "20%" }} />
@@ -118,13 +139,11 @@ export default function NovoCriadouro() {
 
           <TextField label="Endereço" value={endereco} onChange={(e) => setEndereco(e.target.value)} fullWidth />
 
-          {/* Linha com Responsável Nome e CPF */}
           <Box sx={{ display: "flex", gap: 2 }}>
             <TextField label="Responsável Nome" value={responsavelNome} onChange={(e) => setResponsavelNome(e.target.value)} sx={{ flex: 1 }} />
             <TextField label="Responsável CPF" value={responsavelCpf} onChange={(e) => setResponsavelCpf(e.target.value)} sx={{ flex: 1 }} />
           </Box>
 
-          {/* Linha com Email e Telefone */}
           <Box sx={{ display: "flex", gap: 2 }}>
             <TextField label="E-mail" value={email} onChange={(e) => setEmail(e.target.value)} sx={{ flex: 1 }} />
             <TextField label="Telefone" value={telefone} onChange={(e) => setTelefone(e.target.value)} sx={{ flex: 1 }} />
