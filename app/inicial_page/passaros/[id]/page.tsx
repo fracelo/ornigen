@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useParams, useRouter } from "next/navigation";
 import { supabase } from "../../../lib/supabaseClient";
 import Box from "@mui/material/Box";
 import {
@@ -18,9 +19,11 @@ import {
 import Autocomplete from "@mui/material/Autocomplete";
 import { useEmpresa } from "../../../context/empresaContext";
 import { useAuth } from "../../../context/authContext";
-import { useRouter } from "next/navigation";
 
-export default function EditarPassaroPage({ params }: { params: { id: string } }) {
+export default function EditarPassaroPage() {
+  const params = useParams();
+  const id = params?.id as string; // 🔹 obtém o id corretamente
+
   const { empresaId } = useEmpresa();
   const { usuarioId } = useAuth();
   const router = useRouter();
@@ -44,15 +47,18 @@ export default function EditarPassaroPage({ params }: { params: { id: string } }
 
   const [especies, setEspecies] = useState<{ id: number; nome_portugues: string }[]>([]);
   const [criadouros, setCriadouros] = useState<{ id: number; nome: string; proprio: boolean }[]>([]);
+  const [pais, setPais] = useState<any[]>([]);
+  const [maes, setMaes] = useState<any[]>([]);
 
   // 🔹 Carrega dados do pássaro pelo ID
   useEffect(() => {
+    if (!empresaId || !id) return;
+
     const fetchPassaro = async () => {
-      if (!empresaId) return;
       const { data, error } = await supabase
         .from("passaros")
         .select("*")
-        .eq("id", params.id)
+        .eq("id", id)
         .eq("empresa_id", empresaId)
         .single();
 
@@ -65,9 +71,10 @@ export default function EditarPassaroPage({ params }: { params: { id: string } }
         });
       }
     };
+
     fetchPassaro();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [params.id, empresaId]);
+  }, [id, empresaId]);
 
   // 🔹 Busca espécies
   useEffect(() => {
@@ -99,6 +106,33 @@ export default function EditarPassaroPage({ params }: { params: { id: string } }
     fetchCriadouros();
   }, [empresaId]);
 
+  // 🔹 Busca pais e mães
+  useEffect(() => {
+    const fetchPaisEMaes = async () => {
+      if (!empresaId || !id) return;
+
+      const { data: dataPais } = await supabase
+        .from("passaros")
+        .select("id, nome, anilha")
+        .eq("empresa_id", empresaId)
+        .eq("sexo", "M")
+        .neq("id", id);
+
+      if (dataPais) setPais(dataPais);
+
+      const { data: dataMaes } = await supabase
+        .from("passaros")
+        .select("id, nome, anilha")
+        .eq("empresa_id", empresaId)
+        .eq("sexo", "F")
+        .neq("id", id);
+
+      if (dataMaes) setMaes(dataMaes);
+    };
+
+    fetchPaisEMaes();
+  }, [empresaId, id]);
+
   const handleChange = (e: any) => {
     const { name, value, type, checked } = e.target;
     setForm({ ...form, [name]: type === "checkbox" ? checked : value });
@@ -126,7 +160,7 @@ export default function EditarPassaroPage({ params }: { params: { id: string } }
         empresa_id: empresaId,
         usuario_id: usuarioId,
       })
-      .eq("id", params.id)
+      .eq("id", id)
       .eq("empresa_id", empresaId);
 
     if (error) {
@@ -148,93 +182,97 @@ export default function EditarPassaroPage({ params }: { params: { id: string } }
           <TextField type="date" label="Data de nascimento" name="data_nascimento" value={form.data_nascimento || ""} onChange={handleChange} required margin="normal" InputLabelProps={{ shrink: true }} sx={{ width: "250px" }} />
         </Box>
 
-        {/* Espécie */}
+        {/* Espécie + Sexo */}
         <Box display="flex" gap={2} mt={2}>
-          <TextField
-            label="ID Espécie"
-            name="especie_id"
-            value={form.especie_id}
-            onChange={(e) => setForm({ ...form, especie_id: e.target.value })}
-            margin="normal"
-            sx={{ width: "120px" }}
-          />
-
           <Autocomplete
-            freeSolo
-            options={especies.map((e) => e.nome_portugues)}
-            value={form.especie_nome}
+            options={especies.map((e) => ({ id: e.id, label: e.nome_portugues }))}
+            getOptionLabel={(option) => option.label}
+            value={
+              especies.find((e) => e.id.toString() === form.especie_id)
+                ? { id: parseInt(form.especie_id), label: especies.find((e) => e.id.toString() === form.especie_id)?.nome_portugues || "" }
+                : null
+            }
             onChange={(event, newValue) => {
-              const especieSelecionada = especies.find((e) => e.nome_portugues === newValue);
-              if (especieSelecionada) {
+              if (newValue) {
                 setForm((prev: any) => ({
                   ...prev,
-                  especie_id: especieSelecionada.id.toString(),
-                  especie_nome: especieSelecionada.nome_portugues,
+                  especie_id: newValue.id.toString(),
+                  especie_nome: newValue.label,
                 }));
-              } else {
-                setForm((prev: any) => ({ ...prev, especie_nome: newValue || "" }));
               }
             }}
-            renderInput={(params) => <TextField {...params} label="Espécie" placeholder="Digite ou selecione a espécie" margin="normal" fullWidth />}
+            renderInput={(params) => (
+              <TextField {...params} label="Espécie" placeholder="Selecione a espécie" margin="normal" fullWidth />
+            )}
             sx={{ flex: 2 }}
           />
 
-          <RadioGroup row name="sexo" value={form.sexo} onChange={handleChange} sx={{ flex: 1 }}>
+          <RadioGroup row name="sexo" value={form.sexo} onChange={handleChange} sx={{ width: "200px" }}>
             <FormControlLabel value="M" control={<Radio />} label="Macho" />
             <FormControlLabel value="F" control={<Radio />} label="Fêmea" />
           </RadioGroup>
         </Box>
 
-        {/* Pai */}
+                {/* Pai */}
         <Box display="flex" alignItems="center" gap={2} mt={2}>
           <FormControl fullWidth>
             <InputLabel>Pai</InputLabel>
-            <Select name="pai_id" value={form.pai_id || ""} onChange={handleChange}>
+            <Select
+              name="pai_id"
+              value={form.pai_id || ""}
+              onChange={handleChange}
+            >
               <MenuItem value="">-- Selecione --</MenuItem>
+              {pais.map((p) => (
+                <MenuItem key={p.id} value={p.id}>
+                  {p.nome} ({p.anilha})
+                </MenuItem>
+              ))}
             </Select>
           </FormControl>
-          <FormControlLabel control={<Checkbox name="pai_nao_informado" checked={form.pai_nao_informado} onChange={handleChange} />} label="Não Informado" />
+          <FormControlLabel
+            control={
+              <Checkbox
+                name="pai_nao_informado"
+                checked={form.pai_nao_informado}
+                onChange={handleChange}
+              />
+            }
+            label="Não Informado"
+          />
         </Box>
 
         {/* Mãe */}
         <Box display="flex" alignItems="center" gap={2} mt={2}>
           <FormControl fullWidth>
             <InputLabel>Mãe</InputLabel>
-            <Select name="mae_id" value={form.mae_id || ""} onChange={handleChange}>
+            <Select
+              name="mae_id"
+              value={form.mae_id || ""}
+              onChange={handleChange}
+            >
               <MenuItem value="">-- Selecione --</MenuItem>
+              {maes.map((m) => (
+                <MenuItem key={m.id} value={m.id}>
+                  {m.nome} ({m.anilha})
+                </MenuItem>
+              ))}
             </Select>
           </FormControl>
-          <FormControlLabel control={<Checkbox name="mae_nao_informado" checked={form.mae_nao_informado} onChange={handleChange} />} label="Não Informado" />
+          <FormControlLabel
+            control={
+              <Checkbox
+                name="mae_nao_informado"
+                checked={form.mae_nao_informado}
+                onChange={handleChange}
+              />
+            }
+            label="Não Informado"
+          />
         </Box>
 
-               {/* Origem */}
+        {/* Origem */}
         <Box display="flex" gap={2} mt={2} alignItems="flex-start">
-          <TextField
-            label="Código Criadouro"
-            name="origem_id"
-            value={form.origem_id || ""}
-            onChange={(e) => setForm({ ...form, origem_id: e.target.value })}
-            onBlur={async () => {
-              if (form.origem_id && empresaId) {
-                const { data } = await supabase
-                  .from("criadouros")
-                  .select("id, nome_fantasia, razao_social, e_proprio")
-                  .eq("id", form.origem_id)
-                  .eq("empresa_uuid", empresaId)
-                  .single();
-                if (data) {
-                  setForm((prev: any) => ({
-                    ...prev,
-                    origem_id: data.id.toString(),
-                    origem_nome: data.nome_fantasia || data.razao_social,
-                    criacao_propria: data.e_proprio,
-                  }));
-                }
-              }
-            }}
-            sx={{ width: "150px", mt: 2 }}
-          />
-
           <FormControl fullWidth sx={{ mt: 2 }}>
             <InputLabel>Criadouro</InputLabel>
             <Select
@@ -242,7 +280,9 @@ export default function EditarPassaroPage({ params }: { params: { id: string } }
               value={form.origem_id || ""}
               onChange={(e) => {
                 const origemSelecionada = e.target.value as string;
-                const origemObj = criadouros.find((c) => c.id.toString() === origemSelecionada);
+                const origemObj = criadouros.find(
+                  (c) => c.id.toString() === origemSelecionada
+                );
                 setForm((prev: any) => ({
                   ...prev,
                   origem_id: origemSelecionada,
@@ -252,18 +292,7 @@ export default function EditarPassaroPage({ params }: { params: { id: string } }
               }}
             >
               <MenuItem value="">-- Selecione --</MenuItem>
-              {/* Primeiro os criadouros próprios */}
-              {criadouros.filter((c) => c.proprio).map((c) => (
-                <MenuItem key={c.id} value={c.id.toString()}>
-                  {c.nome}
-                </MenuItem>
-              ))}
-              {/* Separador */}
-              {criadouros.some((c) => !c.proprio) && (
-                <MenuItem disabled>──────────────</MenuItem>
-              )}
-              {/* Depois os demais criadouros */}
-              {criadouros.filter((c) => !c.proprio).map((c) => (
+              {criadouros.map((c) => (
                 <MenuItem key={c.id} value={c.id.toString()}>
                   {c.nome}
                 </MenuItem>

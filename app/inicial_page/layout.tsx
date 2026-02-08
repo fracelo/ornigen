@@ -142,7 +142,7 @@ export default function InicialLayout({ children }: { children: React.ReactNode 
                 selected={pathname === "/inicial_page/passaros"}
                 onClick={() => goTo("/inicial_page/passaros")}
               >
-                <ListItemText primary="Inclusão" />
+                <ListItemText primary="Relação de Pássaros" />
               </ListItemButton>
 
               <ListItemButton

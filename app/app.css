@@ -91,3 +91,26 @@
   margin-bottom: 5px;   /* espaço entre label e input */
   display: block;       /* garante que fique acima do input */
 }
+
+/* Select - item selecionado */
+.MuiMenuItem-root.Mui-selected {
+  background-color: #1976d2 !important; /* azul padrão MUI */
+  color: #fff !important;               /* texto branco */
+}
+
+.MuiMenuItem-root.Mui-selected:hover {
+  background-color: #1565c0 !important; /* azul mais escuro no hover */
+  color: #fff !important;
+}
+
+/* Autocomplete - item selecionado */
+.MuiAutocomplete-option[aria-selected="true"] {
+  background-color: #1976d2 !important;
+  color: #fff !important;
+}
+
+/* Autocomplete - item focado */
+.MuiAutocomplete-option.Mui-focused {
+  background-color: rgba(25, 118, 210, 0.2) !important;
+  color: inherit; /* mantém cor padrão no foco */
+}

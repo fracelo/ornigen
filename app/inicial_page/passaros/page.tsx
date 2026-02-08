@@ -41,14 +41,16 @@ export default function ListaPassaros() {
         nome,
         anilha,
         sexo,
-        especies (nome_portugues),
-        criadouros (nome_fantasia, razao_social)
+        especies:especie_id (nome_portugues),
+        criadouros:origem_id (nome_fantasia, razao_social)
       `)
       .eq("empresa_id", empresaId) // 🔹 filtra pela empresa logada
       .order("id", { ascending: true });
 
     if (!error && data) {
       setRegistros(data);
+    } else {
+      console.error("Erro ao carregar pássaros:", error);
     }
   };
 
@@ -61,12 +63,14 @@ export default function ListaPassaros() {
   };
 
   const editarRegistro = (id: number) => {
-    router.push(`/passaros/${id}`); // 🔹 abre tela de edição dinâmica
-  };
+  router.push(`/inicial_page/passaros/${id}`); // rota dinâmica correta
+};
+
 
   const novoRegistro = () => {
-    router.push("/passaros/novo"); // 🔹 abre tela de inclusão
+  router.push("/inicial_page/passaros/novo"); // rota correta
   };
+
 
   return (
     <Box sx={{ p: 4 }}>
