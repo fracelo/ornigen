@@ -1,32 +1,39 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useRouter, useParams } from "next/navigation";
 import { supabase } from "../../../lib/supabaseClient";
-import Box from "@mui/material/Box";
 import {
+  Box,
   TextField,
   Button,
-  Checkbox,
+  RadioGroup,
   FormControlLabel,
   Radio,
-  RadioGroup,
+  FormControl,
+  InputLabel,
   Select,
   MenuItem,
-  InputLabel,
-  FormControl,
+  Checkbox,
 } from "@mui/material";
 import Autocomplete from "@mui/material/Autocomplete";
-import { useEmpresa } from "../../../context/empresaContext";
-import { useAuth } from "../../../context/authContext";
+
+// 🔹 Importa o crachá
+import CrachaPassaro from "../../../components/CrachaPassaro";
+
+const normalizeText = (text: string) =>
+  text
+    ? text
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[-\s]/g, "")
+        .toLowerCase()
+    : "";
 
 export default function EditarPassaroPage() {
-  const params = useParams();
-  const id = params?.id as string; // 🔹 obtém o id corretamente
-
-  const { empresaId } = useEmpresa();
-  const { usuarioId } = useAuth();
   const router = useRouter();
+  const params = useParams();
+  const passaroId = params?.id;
 
   const [form, setForm] = useState<any>({
     nome: "",
@@ -37,6 +44,8 @@ export default function EditarPassaroPage() {
     sexo: "M",
     pai_id: null,
     mae_id: null,
+    pai_nome: "",
+    mae_nome: "",
     pai_nao_informado: false,
     mae_nao_informado: false,
     criacao_propria: true,
@@ -46,54 +55,79 @@ export default function EditarPassaroPage() {
   });
 
   const [especies, setEspecies] = useState<{ id: number; nome_portugues: string }[]>([]);
-  const [criadouros, setCriadouros] = useState<{ id: number; nome: string; proprio: boolean }[]>([]);
   const [pais, setPais] = useState<any[]>([]);
   const [maes, setMaes] = useState<any[]>([]);
+  const [criadouros, setCriadouros] = useState<{ id: number; nome: string; proprio: boolean }[]>([]);
 
-  // 🔹 Carrega dados do pássaro pelo ID
-  useEffect(() => {
-    if (!empresaId || !id) return;
-
-    const fetchPassaro = async () => {
-      const { data, error } = await supabase
-        .from("passaros")
-        .select("*")
-        .eq("id", id)
-        .eq("empresa_id", empresaId)
-        .single();
-
-      if (!error && data) {
-        setForm({
-          ...form,
-          ...data,
-          especie_id: data.especie_id?.toString() || "",
-          origem_id: data.origem_id?.toString() || "",
-        });
-      }
-    };
-
-    fetchPassaro();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id, empresaId]);
-
-  // 🔹 Busca espécies
+  // 🔹 Carregar espécies
   useEffect(() => {
     const fetchEspecies = async () => {
-      const { data } = await supabase.from("especies").select("id, nome_portugues");
-      if (data) setEspecies(data);
+      const { data, error } = await supabase.from("especies").select("id, nome_portugues");
+      if (!error && data) {
+        const ordenadas = data.sort((a, b) =>
+          a.nome_portugues.localeCompare(b.nome_portugues, "pt", { sensitivity: "base" })
+        );
+        setEspecies(ordenadas);
+      }
     };
     fetchEspecies();
   }, []);
 
-  // 🔹 Busca criadouros
+  // 🔹 Carregar dados do pássaro
+  useEffect(() => {
+    const fetchPassaro = async () => {
+      if (!passaroId) return;
+      const { data } = await supabase
+        .from("passaros")
+        .select("*")
+        .eq("id", passaroId)
+        .single();
+
+      if (data) {
+        setForm((prev: any) => ({
+          ...prev,
+          ...data,
+          especie_id: data.especie_id?.toString() || "",
+          especie_nome:
+            especies.find((e) => e.id === data.especie_id)?.nome_portugues || "",
+        }));
+      }
+    };
+    fetchPassaro();
+  }, [passaroId, especies]);
+
+  // 🔹 Carregar pais e mães
+  useEffect(() => {
+    const fetchPaisEMaes = async () => {
+      if (!passaroId) return;
+      const idAtual = parseInt(passaroId as string, 10);
+
+      const { data: dataPais } = await supabase
+        .from("passaros")
+        .select("id, nome, anilha, sexo")
+        .eq("sexo", "M")
+        .neq("id", idAtual);
+
+      setPais(dataPais || []);
+
+      const { data: dataMaes } = await supabase
+        .from("passaros")
+        .select("id, nome, anilha, sexo")
+        .eq("sexo", "F")
+        .neq("id", idAtual);
+
+      setMaes(dataMaes || []);
+    };
+
+    fetchPaisEMaes();
+  }, [passaroId]);
+
+  // 🔹 Carregar criadouros
   useEffect(() => {
     const fetchCriadouros = async () => {
-      if (!empresaId) return;
       const { data } = await supabase
         .from("criadouros")
-        .select("id, nome_fantasia, razao_social, e_proprio")
-        .eq("empresa_uuid", empresaId);
-
+        .select("id, nome_fantasia, razao_social, e_proprio");
       if (data) {
         const lista = data.map((c) => ({
           id: c.id,
@@ -104,41 +138,13 @@ export default function EditarPassaroPage() {
       }
     };
     fetchCriadouros();
-  }, [empresaId]);
-
-  // 🔹 Busca pais e mães
-  useEffect(() => {
-    const fetchPaisEMaes = async () => {
-      if (!empresaId || !id) return;
-
-      const { data: dataPais } = await supabase
-        .from("passaros")
-        .select("id, nome, anilha")
-        .eq("empresa_id", empresaId)
-        .eq("sexo", "M")
-        .neq("id", id);
-
-      if (dataPais) setPais(dataPais);
-
-      const { data: dataMaes } = await supabase
-        .from("passaros")
-        .select("id, nome, anilha")
-        .eq("empresa_id", empresaId)
-        .eq("sexo", "F")
-        .neq("id", id);
-
-      if (dataMaes) setMaes(dataMaes);
-    };
-
-    fetchPaisEMaes();
-  }, [empresaId, id]);
+  }, []);
 
   const handleChange = (e: any) => {
     const { name, value, type, checked } = e.target;
     setForm({ ...form, [name]: type === "checkbox" ? checked : value });
   };
 
-  // 🔹 Atualiza registro
   const handleSubmit = async (e: any) => {
     e.preventDefault();
 
@@ -147,7 +153,7 @@ export default function EditarPassaroPage() {
       .update({
         nome: form.nome,
         anilha: form.anilha,
-        especie_id: form.especie_id,
+        especie_id: form.especie_id ? parseInt(form.especie_id, 10) : null,
         sexo: form.sexo,
         pai_id: form.pai_nao_informado ? null : form.pai_id,
         mae_id: form.mae_nao_informado ? null : form.mae_id,
@@ -157,11 +163,8 @@ export default function EditarPassaroPage() {
         data_nascimento: form.data_nascimento,
         data_recebimento: form.data_recebimento,
         origem_id: form.origem_id ? parseInt(form.origem_id, 10) : null,
-        empresa_id: empresaId,
-        usuario_id: usuarioId,
       })
-      .eq("id", id)
-      .eq("empresa_id", empresaId);
+      .eq("id", passaroId);
 
     if (error) {
       alert("Erro ao atualizar: " + error.message);
@@ -172,55 +175,65 @@ export default function EditarPassaroPage() {
   };
 
   return (
-    <Box sx={{ width: 900, height: 800, p: 4, boxShadow: 3, borderRadius: 2, backgroundColor: "white", overflowY: "auto", mx: "auto", mt: 4 }}>
-      <h2>Edição de Pássaro</h2>
-      <form onSubmit={handleSubmit}>
-        {/* Nome, Anilha, Data de Nascimento */}
-        <Box display="flex" gap={2}>
-          <TextField label="Nome" name="nome" value={form.nome} onChange={handleChange} required fullWidth margin="normal" />
-          <TextField label="Anilha" name="anilha" value={form.anilha} onChange={handleChange} required margin="normal" sx={{ width: "200px" }} />
-          <TextField type="date" label="Data de nascimento" name="data_nascimento" value={form.data_nascimento || ""} onChange={handleChange} required margin="normal" InputLabelProps={{ shrink: true }} sx={{ width: "250px" }} />
-        </Box>
+    <Box display="flex" gap={4}>
+      {/* Coluna esquerda: formulário */}
+      <Box sx={{ width: 900, p: 4, mx: "auto", mt: 4, boxShadow: 3, borderRadius: 2 }}>
+        <h2>Editar Pássaro</h2>
+        <form onSubmit={handleSubmit}>
+          {/* Nome, Anilha, Data de Nascimento */}
+          <Box display="flex" gap={2} mt={2}>
+            <TextField label="Nome" name="nome" value={form.nome} onChange={handleChange} required fullWidth />
+            <TextField label="Anilha" name="anilha" value={form.anilha} onChange={handleChange} required sx={{ width: "200px" }} />
+            <TextField type="date" label="Data de nascimento" name="data_nascimento" value={form.data_nascimento || ""} onChange={handleChange} required InputLabelProps={{ shrink: true }} sx={{ width: "250px" }} />
+          </Box>
 
-        {/* Espécie + Sexo */}
-        <Box display="flex" gap={2} mt={2}>
-          <Autocomplete
-            options={especies.map((e) => ({ id: e.id, label: e.nome_portugues }))}
-            getOptionLabel={(option) => option.label}
-            value={
-              especies.find((e) => e.id.toString() === form.especie_id)
-                ? { id: parseInt(form.especie_id), label: especies.find((e) => e.id.toString() === form.especie_id)?.nome_portugues || "" }
-                : null
-            }
-            onChange={(event, newValue) => {
-              if (newValue) {
-                setForm((prev: any) => ({
-                  ...prev,
-                  especie_id: newValue.id.toString(),
-                  especie_nome: newValue.label,
-                }));
-              }
-            }}
-            renderInput={(params) => (
-              <TextField {...params} label="Espécie" placeholder="Selecione a espécie" margin="normal" fullWidth />
-            )}
-            sx={{ flex: 2 }}
-          />
+          {/* Espécie + Sexo */}
+          <Box display="flex" gap={2} mt={2} alignItems="center">
+            <TextField
+              label="Código da Espécie"
+              name="especie_id"
+              value={form.especie_id || ""}
+              onChange={handleChange}
+              sx={{ width: "150px" }}
+            />
+            <Autocomplete
+              options={especies.map((e) => ({ id: e.id, label: e.nome_portugues }))}
+              getOptionLabel={(option) => option.label}
+              value={form.especie_id ? { id: parseInt(form.especie_id), label: form.especie_nome } : null}
+              onChange={(event, newValue) => {
+                if (newValue) {
+                  setForm((prev: any) => ({
+                    ...prev,
+                    especie_id: newValue.id.toString(),
+                    especie_nome: newValue.label,
+                  }));
+                }
+              }}
+              renderInput={(params) => <TextField {...params} label="Espécie" />}
+              sx={{ flex: 1 }}
+            />
+            <RadioGroup row name="sexo" value={form.sexo} onChange={handleChange} sx={{ width: "200px", justifyContent: "center" }}>
+              <FormControlLabel value="M" control={<Radio />} label="Macho" />
+              <FormControlLabel value="F" control={<Radio />} label="Fêmea" />
+            </RadioGroup>
+          </Box>
 
-          <RadioGroup row name="sexo" value={form.sexo} onChange={handleChange} sx={{ width: "200px" }}>
-            <FormControlLabel value="M" control={<Radio />} label="Macho" />
-            <FormControlLabel value="F" control={<Radio />} label="Fêmea" />
-          </RadioGroup>
-        </Box>
-
-                {/* Pai */}
+                 {/* Pai */}
         <Box display="flex" alignItems="center" gap={2} mt={2}>
           <FormControl fullWidth>
             <InputLabel>Pai</InputLabel>
             <Select
               name="pai_id"
               value={form.pai_id || ""}
-              onChange={handleChange}
+              onChange={(e) => {
+                const id = e.target.value;
+                const paiObj = pais.find((p) => p.id === id);
+                setForm((prev: any) => ({
+                  ...prev,
+                  pai_id: id,
+                  pai_nome: paiObj ? paiObj.nome : "",
+                }));
+              }}
             >
               <MenuItem value="">-- Selecione --</MenuItem>
               {pais.map((p) => (
@@ -249,7 +262,15 @@ export default function EditarPassaroPage() {
             <Select
               name="mae_id"
               value={form.mae_id || ""}
-              onChange={handleChange}
+              onChange={(e) => {
+                const id = e.target.value;
+                const maeObj = maes.find((m) => m.id === id);
+                setForm((prev: any) => ({
+                  ...prev,
+                  mae_id: id,
+                  mae_nome: maeObj ? maeObj.nome : "",
+                }));
+              }}
             >
               <MenuItem value="">-- Selecione --</MenuItem>
               {maes.map((m) => (
@@ -302,13 +323,8 @@ export default function EditarPassaroPage() {
         </Box>
 
         {/* Botões */}
-        <Box mt={2}>
-          <Button
-            type="submit"
-            variant="contained"
-            color="primary"
-            sx={{ mr: 2 }}
-          >
+        <Box mt={3} display="flex" gap={2}>
+          <Button type="submit" variant="contained" color="primary">
             Atualizar
           </Button>
           <Button
@@ -322,5 +338,9 @@ export default function EditarPassaroPage() {
         </Box>
       </form>
     </Box>
+
+    {/* Coluna direita: crachá */}
+    <CrachaPassaro form={form} />
+  </Box>
   );
 }

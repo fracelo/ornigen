@@ -20,6 +20,16 @@ import {
 } from "@mui/material";
 import Autocomplete from "@mui/material/Autocomplete";
 
+// 🔹 Função para remover acentos, espaços e hífens
+const normalizeText = (text: string) =>
+  text
+    ? text
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[-\s]/g, "")
+        .toLowerCase()
+    : "";
+
 export default function NovoPassaroPage() {
   const { empresaId } = useEmpresa();
   const { usuarioId } = useAuth();
@@ -47,11 +57,50 @@ export default function NovoPassaroPage() {
   const [pais, setPais] = useState<any[]>([]);
   const [maes, setMaes] = useState<any[]>([]);
 
-  // 🔹 Busca espécies
+  // 🔹 Busca espécies com paginação automática
   useEffect(() => {
     const fetchEspecies = async () => {
-      const { data } = await supabase.from("especies").select("id, nome_portugues");
-      if (data) setEspecies(data);
+      let todasEspecies: any[] = [];
+      let from = 0;
+      let to = 999;
+
+      while (true) {
+        const { data, error } = await supabase
+          .from("especies")
+          .select("id, nome_portugues")
+          .range(from, to);
+
+        if (error) {
+          console.error("Erro ao buscar espécies:", error);
+          break;
+        }
+
+        if (!data || data.length === 0) break;
+
+        todasEspecies = [...todasEspecies, ...data];
+
+        if (data.length < 1000) break; // chegou no fim
+        from += 1000;
+        to += 1000;
+      }
+
+      console.log("Total de espécies carregadas:", todasEspecies.length);
+
+      const ordenadas = todasEspecies.sort((a, b) =>
+        a.nome_portugues.localeCompare(b.nome_portugues, "pt", { sensitivity: "base" })
+      );
+      setEspecies(ordenadas);
+
+      // 🔹 Pré-seleciona o registro 1034 - trinca-ferro
+      const trinca = ordenadas.find((e) => e.id === 1034);
+      if (trinca) {
+        console.log("Pré-selecionando espécie:", trinca);
+        setForm((prev: any) => ({
+          ...prev,
+          especie_id: trinca.id.toString(),
+          especie_nome: trinca.nome_portugues,
+        }));
+      }
     };
     fetchEspecies();
   }, []);
@@ -107,7 +156,6 @@ export default function NovoPassaroPage() {
     setForm({ ...form, [name]: type === "checkbox" ? checked : value });
   };
 
-  // 🔹 Salvar registro
   const handleSubmit = async (e: any) => {
     e.preventDefault();
 
@@ -134,7 +182,6 @@ export default function NovoPassaroPage() {
       alert("Erro ao cadastrar: " + error.message);
     } else {
       alert("Pássaro cadastrado com sucesso!");
-      // 🔹 Limpa o formulário para novo cadastro
       setForm({
         nome: "",
         anilha: "",
@@ -155,95 +202,119 @@ export default function NovoPassaroPage() {
   };
 
   const handleCancel = () => {
-    router.push("/inicial_page/passaros"); // 🔹 volta para lista
+    router.push("/inicial_page/passaros");
   };
 
   return (
     <Box sx={{ width: 900, p: 4, mx: "auto", mt: 4, boxShadow: 3, borderRadius: 2 }}>
       <h2>Novo Pássaro</h2>
       <form onSubmit={handleSubmit}>
-        {/* Nome, Anilha, Data de Nascimento */}
-        <Box display="flex" gap={2}>
-          <TextField label="Nome" name="nome" value={form.nome} onChange={handleChange} required fullWidth margin="normal" />
-          <TextField label="Anilha" name="anilha" value={form.anilha} onChange={handleChange} required margin="normal" sx={{ width: "200px" }} />
-          <TextField type="date" label="Data de nascimento" name="data_nascimento" value={form.data_nascimento || ""} onChange={handleChange} required margin="normal" InputLabelProps={{ shrink: true }} sx={{ width: "250px" }} />
+        {/* Nome, Anilha, Data de Nascimento na mesma linha */}
+        <Box display="flex" gap={2} mt={2}>
+          <TextField
+            label="Nome"
+            name="nome"
+            value={form.nome}
+            onChange={handleChange}
+            required
+            fullWidth
+          />
+          <TextField
+            label="Anilha"
+            name="anilha"
+            value={form.anilha}
+            onChange={handleChange}
+            required
+            sx={{ width: "200px" }}
+          />
+          <TextField
+            type="date"
+            label="Data de nascimento"
+            name="data_nascimento"
+            value={form.data_nascimento || ""}
+            onChange={handleChange}
+            required
+            InputLabelProps={{ shrink: true }}
+            sx={{ width: "250px" }}
+          />
         </Box>
 
-        {/* Espécie + Sexo */}
-<Box display="flex" gap={2} mt={2}>
-  {/* Código da Espécie */}
-  <TextField
-    label="Código da Espécie"
-    name="especie_id"
-    value={form.especie_id || ""}
-    onChange={handleChange}
-    onBlur={() => {
-      // 🔹 Ao sair do campo, sincroniza combo
-      const especieObj = especies.find(
-        (e) => e.id.toString() === form.especie_id
-      );
-      if (especieObj) {
-        setForm((prev: any) => ({
-          ...prev,
-          especie_nome: especieObj.nome_portugues,
-        }));
-      } else {
-        setForm((prev: any) => ({
-          ...prev,
-          especie_nome: "",
-        }));
-      }
-    }}
-    sx={{ width: "200px" }}
-  />
+                {/* Espécie + Sexo */}
+        <Box display="flex" gap={2} mt={2} alignItems="center">
+          <TextField
+            label="Código da Espécie"
+            name="especie_id"
+            value={form.especie_id || ""}
+            onChange={handleChange}
+            onBlur={() => {
+              const especieObj = especies.find(
+                (e) => e.id.toString() === form.especie_id
+              );
+              if (especieObj) {
+                setForm((prev: any) => ({
+                  ...prev,
+                  especie_nome: especieObj.nome_portugues,
+                }));
+              } else {
+                setForm((prev: any) => ({
+                  ...prev,
+                  especie_nome: "",
+                }));
+              }
+            }}
+            sx={{ width: "150px" }}
+          />
 
-        {/* Combo de Espécies */}
-        <Autocomplete
-            options={especies.map((e) => ({
-            id: e.id,
-            label: `${e.id} - ${e.nome_portugues}`, // 🔹 mostra código + nome
-            }))}
+          <Autocomplete
+            options={especies.map((e) => ({ id: e.id, label: e.nome_portugues }))}
             getOptionLabel={(option) => option.label}
+            filterOptions={(options, state) => {
+              const input = normalizeText(state.inputValue);
+              const filtradas = options.filter((opt) =>
+                normalizeText(opt.label).includes(input)
+              );
+              return filtradas;
+            }}
             value={
-            especies.find((e) => e.id.toString() === form.especie_id)
+              form.especie_id
                 ? {
                     id: parseInt(form.especie_id),
-                    label: `${form.especie_id} - ${form.especie_nome}`,
-                }
+                    label: form.especie_nome,
+                  }
                 : null
             }
             onChange={(event, newValue) => {
-            if (newValue) {
+              if (newValue) {
                 setForm((prev: any) => ({
-                ...prev,
-                especie_id: newValue.id.toString(),
-                especie_nome: newValue.label.split(" - ")[1], // pega só o nome
+                  ...prev,
+                  especie_id: newValue.id.toString(),
+                  especie_nome: newValue.label,
                 }));
-            }
+              } else {
+                setForm((prev: any) => ({
+                  ...prev,
+                  especie_id: "",
+                  especie_nome: "",
+                }));
+              }
             }}
             renderInput={(params) => (
-            <TextField
-                {...params}
-                label="Espécie"
-                placeholder="Digite para buscar"
-                margin="normal"
-                fullWidth
-            />
+              <TextField {...params} label="Espécie" placeholder="Digite para buscar" />
             )}
-            sx={{ flex: 2 }}
-        />
+            sx={{ flex: 1 }}
+          />
 
-        {/* Sexo */}
-        <RadioGroup
+          {/* Sexo */}
+          <RadioGroup
             row
             name="sexo"
             value={form.sexo}
             onChange={handleChange}
-            sx={{ width: "200px" }}
-        >
+            sx={{ width: "200px", justifyContent: "center" }}
+          >
             <FormControlLabel value="M" control={<Radio />} label="Macho" />
             <FormControlLabel value="F" control={<Radio />} label="Fêmea" />
-        </RadioGroup>
+          </RadioGroup>
         </Box>
 
         {/* Pai */}
@@ -260,20 +331,22 @@ export default function NovoPassaroPage() {
             </Select>
           </FormControl>
           <FormControlLabel
-            control={<Checkbox name="pai_nao_informado" checked={form.pai_nao_informado} onChange={handleChange} />}
+            control={
+              <Checkbox
+                name="pai_nao_informado"
+                checked={form.pai_nao_informado}
+                onChange={handleChange}
+              />
+            }
             label="Não Informado"
           />
         </Box>
 
-                {/* Mãe */}
+        {/* Mãe */}
         <Box display="flex" alignItems="center" gap={2} mt={2}>
           <FormControl fullWidth>
             <InputLabel>Mãe</InputLabel>
-            <Select
-              name="mae_id"
-              value={form.mae_id || ""}
-              onChange={handleChange}
-            >
+            <Select name="mae_id" value={form.mae_id || ""} onChange={handleChange}>
               <MenuItem value="">-- Selecione --</MenuItem>
               {maes.map((m) => (
                 <MenuItem key={m.id} value={m.id}>
