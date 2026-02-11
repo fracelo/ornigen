@@ -13,27 +13,35 @@ function formatDate(dateStr: string | null) {
   return `${dia}/${mes}/${ano}`;
 }
 
-async function getAscendentes(passaroId: number, nivel: number = 3): Promise<any> {
-  if (!passaroId || nivel === 0) return null;
+// 🔹 Busca genealogia direto da tabela genealogia
+async function getGenealogia(passaroId: number, empresaId: string) {
+  const { data, error } = await supabase
+    .from("genealogia")
+    .select(`
+      lado,
+      nivel,
+      ascendente_id,
+      passaros!genealogia_ascendente_id_fkey (
+        id,
+        nome,
+        anilha,
+        data_nascimento
+      )
+    `)
+    .eq("passaro_id", passaroId)
+    .eq("empresa_id", empresaId)
+    .order("lado", { ascending: true })
+    .order("nivel", { ascending: true });
 
-  const { data } = await supabase
-    .from("passaros")
-    .select("id, nome, anilha, pai_id, mae_id, data_nascimento")
-    .eq("id", passaroId)
-    .single();
+  if (error) {
+    console.error("Erro ao buscar genealogia:", error);
+    return [];
+  }
 
-  if (!data) return null;
-
-  return {
-    id: data.id,
-    nome: data.nome,
-    anilha: data.anilha,
-    data_nascimento: data.data_nascimento,
-    pai: await getAscendentes(data.pai_id, nivel - 1),
-    mae: await getAscendentes(data.mae_id, nivel - 1),
-  };
+  return data;
 }
 
+// 🔹 Renderização de coluna com fonte adaptativa
 function renderColumn(nodes: any[], expectedCount: number) {
   const filled = [...nodes];
   while (filled.length < expectedCount) {
@@ -49,13 +57,18 @@ function renderColumn(nodes: any[], expectedCount: number) {
         justifyContent: "space-around",
         alignItems: "flex-start",
         fontFamily: "Arial, Helvetica, sans-serif",
-        fontSize: "0.7rem",
-        pl: 1,
       }}
     >
       {filled.map((n, idx) => (
-        <Box key={idx} sx={{ minHeight: "1.2em" }}>
-          {n?.nome || ""}
+        <Box
+          key={idx}
+          sx={{
+            minHeight: "1em",
+            lineHeight: 1.1,
+            fontSize: `${0.55 + idx * 0.05}rem`, // fonte cresce conforme nível
+          }}
+        >
+          {n?.passaros?.nome || ""}
         </Box>
       ))}
     </Box>
@@ -63,35 +76,23 @@ function renderColumn(nodes: any[], expectedCount: number) {
 }
 
 export default function CrachaPassaro({ form }: { form: any }) {
-  const [ascendentes, setAscendentes] = useState<any>(null);
+  const [genealogia, setGenealogia] = useState<any[]>([]);
 
   useEffect(() => {
     const atualizarArvore = async () => {
-      const asc = {
-        pai: form.pai_id ? await getAscendentes(form.pai_id) : null,
-        mae: form.mae_id ? await getAscendentes(form.mae_id) : null,
-      };
-      setAscendentes(asc);
+      if (form.id && form.empresa_id) {
+        const asc = await getGenealogia(form.id, form.empresa_id);
+        setGenealogia(asc);
+      }
     };
     atualizarArvore();
-  }, [form.pai_id, form.mae_id]);
+  }, [form.id, form.empresa_id]);
 
-  const col1: any[] = [
-    ascendentes?.pai?.pai,
-    ascendentes?.pai?.mae,
-    ascendentes?.mae?.pai,
-    ascendentes?.mae?.mae,
-  ];
-
-  const col2: any[] = [];
-  col1.forEach((n) => {
-    col2.push(n?.pai || null, n?.mae || null);
-  });
-
-  const col3: any[] = [];
-  col2.forEach((n) => {
-    col3.push(n?.pai || null, n?.mae || null);
-  });
+  // 🔹 Separar colunas por nível
+  const col1 = genealogia.filter((g) => g.nivel === 1);
+  const col2 = genealogia.filter((g) => g.nivel === 2);
+  const col3 = genealogia.filter((g) => g.nivel === 3);
+  const col4 = genealogia.filter((g) => g.nivel === 4);
 
   return (
     <Box
@@ -101,7 +102,7 @@ export default function CrachaPassaro({ form }: { form: any }) {
         display: "flex",
         border: "1px solid #000",
         alignItems: "center",
-        justifyContent: "flex-start", // alinhado à esquerda
+        justifyContent: "flex-start",
         mx: "auto",
       }}
     >
@@ -116,10 +117,10 @@ export default function CrachaPassaro({ form }: { form: any }) {
             display: "flex",
             flexDirection: "column",
             alignItems: "flex-start",
-            justifyContent: "center",
+            justifyContent: "flex-start",
             fontFamily: "Arial, Helvetica, sans-serif",
-            fontSize: "0.75rem",
-            p: 1,
+            fontSize: "0.65rem",
+            p: 0.5,
           }}
         >
           {/* Logo */}
@@ -128,26 +129,42 @@ export default function CrachaPassaro({ form }: { form: any }) {
               width: "2cm",
               height: "2cm",
               backgroundColor: "white",
-              mb: 1,
+              mb: 0.5,
               alignSelf: "center",
             }}
           >
             {/* Logo do criadouro */}
           </Box>
 
-          {/* Dados principais alinhados à esquerda */}
-          <div style={{ marginLeft: "4px" }}>{form.nome}</div>
-          <div style={{ marginLeft: "4px" }}>{form.anilha}</div>
-          <div style={{ marginLeft: "4px" }}>{formatDate(form.data_nascimento)}</div>
-          <div style={{ marginLeft: "4px" }}>{form.pai_nome ? `Pai: ${form.pai_nome}` : ""}</div>
-          <div style={{ marginLeft: "4px" }}>{form.mae_nome ? `Mãe: ${form.mae_nome}` : ""}</div>
+          {/* Labels e dados principais */}
+          <div style={{ fontSize: "0.55rem", marginBottom: "2px" }}>Nome</div>
+          <div style={{ marginLeft: "4px", fontSize: "0.65rem" }}>{form.nome}</div>
+
+          <div style={{ fontSize: "0.55rem", marginBottom: "2px" }}>Anilha</div>
+          <div style={{ marginLeft: "4px", fontSize: "0.65rem" }}>{form.anilha}</div>
+
+          <div style={{ marginLeft: "4px", fontSize: "0.65rem" }}>
+            {formatDate(form.data_nascimento)}
+          </div>
+
+          <div style={{ marginLeft: "4px", fontSize: "0.6rem" }}>
+            {form.especie_nome_portugues}
+          </div>
+
+          <div style={{ marginLeft: "4px", fontSize: "0.6rem" }}>
+            {form.pai_nome ? `Pai: ${form.pai_nome}` : ""}
+          </div>
+          <div style={{ marginLeft: "4px", fontSize: "0.6rem" }}>
+            {form.mae_nome ? `Mãe: ${form.mae_nome}` : ""}
+          </div>
         </Box>
 
-        {/* Lado direito: colunas da árvore */}
+        {/* Lado direito: árvore genealógica */}
         <Box sx={{ flex: 1, display: "flex", flexDirection: "row" }}>
           {renderColumn(col1, 4)}
           {renderColumn(col2, 8)}
           {renderColumn(col3, 16)}
+          {renderColumn(col4, 32)}
         </Box>
       </Box>
     </Box>

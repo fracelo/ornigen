@@ -17,18 +17,7 @@ import {
   Checkbox,
 } from "@mui/material";
 import Autocomplete from "@mui/material/Autocomplete";
-
-// 🔹 Importa o crachá
 import CrachaPassaro from "../../../components/CrachaPassaro";
-
-const normalizeText = (text: string) =>
-  text
-    ? text
-        .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "")
-        .replace(/[-\s]/g, "")
-        .toLowerCase()
-    : "";
 
 export default function EditarPassaroPage() {
   const router = useRouter();
@@ -59,17 +48,37 @@ export default function EditarPassaroPage() {
   const [maes, setMaes] = useState<any[]>([]);
   const [criadouros, setCriadouros] = useState<{ id: number; nome: string; proprio: boolean }[]>([]);
 
-  // 🔹 Carregar espécies
+  // 🔹 Busca espécies com paginação automática
   useEffect(() => {
     const fetchEspecies = async () => {
-      const { data, error } = await supabase.from("especies").select("id, nome_portugues");
-      if (!error && data) {
-        const ordenadas = data.sort((a, b) =>
-          a.nome_portugues.localeCompare(b.nome_portugues, "pt", { sensitivity: "base" })
-        );
-        setEspecies(ordenadas);
+      let todasEspecies: any[] = [];
+      let from = 0;
+      let to = 999;
+
+      while (true) {
+        const { data, error } = await supabase
+          .from("especies")
+          .select("id, nome_portugues")
+          .range(from, to)
+          .order("nome_portugues", { ascending: true });
+
+        if (error) {
+          console.error("Erro ao buscar espécies:", error);
+          break;
+        }
+
+        if (!data || data.length === 0) break;
+
+        todasEspecies = [...todasEspecies, ...data];
+
+        if (data.length < 1000) break; // chegou no fim
+        from += 1000;
+        to += 1000;
       }
+
+      setEspecies(todasEspecies);
     };
+
     fetchEspecies();
   }, []);
 
@@ -189,17 +198,36 @@ export default function EditarPassaroPage() {
 
           {/* Espécie + Sexo */}
           <Box display="flex" gap={2} mt={2} alignItems="center">
+            {/* Código da Espécie */}
             <TextField
               label="Código da Espécie"
               name="especie_id"
               value={form.especie_id || ""}
-              onChange={handleChange}
+              onChange={(e) => {
+                const id = e.target.value;
+                const especieObj = especies.find((esp) => esp.id.toString() === id);
+                setForm((prev: any) => ({
+                  ...prev,
+                  especie_id: id,
+                  especie_nome: especieObj ? especieObj.nome_portugues : "",
+                }));
+              }}
               sx={{ width: "150px" }}
             />
+
+            {/* Combo de Espécie */}
             <Autocomplete
               options={especies.map((e) => ({ id: e.id, label: e.nome_portugues }))}
               getOptionLabel={(option) => option.label}
-              value={form.especie_id ? { id: parseInt(form.especie_id), label: form.especie_nome } : null}
+              value={
+                form.especie_id
+                  ? {
+                      id: parseInt(form.especie_id),
+                      label:
+                        especies.find((e) => e.id === parseInt(form.especie_id))?.nome_portugues || "",
+                    }
+                  : null
+              }
               onChange={(event, newValue) => {
                 if (newValue) {
                   setForm((prev: any) => ({
@@ -207,140 +235,154 @@ export default function EditarPassaroPage() {
                     especie_id: newValue.id.toString(),
                     especie_nome: newValue.label,
                   }));
+                } else {
+                  setForm((prev: any) => ({
+                    ...prev,
+                    especie_id: "",
+                    especie_nome: "",
+                  }));
                 }
               }}
               renderInput={(params) => <TextField {...params} label="Espécie" />}
               sx={{ flex: 1 }}
             />
-            <RadioGroup row name="sexo" value={form.sexo} onChange={handleChange} sx={{ width: "200px", justifyContent: "center" }}>
+
+            {/* Sexo */}
+            <RadioGroup
+              row
+              name="sexo"
+              value={form.sexo}
+              onChange={handleChange}
+              sx={{ width: "200px", justifyContent: "center" }}
+            >
               <FormControlLabel value="M" control={<Radio />} label="Macho" />
               <FormControlLabel value="F" control={<Radio />} label="Fêmea" />
             </RadioGroup>
           </Box>
 
-                 {/* Pai */}
-        <Box display="flex" alignItems="center" gap={2} mt={2}>
-          <FormControl fullWidth>
-            <InputLabel>Pai</InputLabel>
-            <Select
-              name="pai_id"
-              value={form.pai_id || ""}
-              onChange={(e) => {
-                const id = e.target.value;
-                const paiObj = pais.find((p) => p.id === id);
-                setForm((prev: any) => ({
-                  ...prev,
-                  pai_id: id,
-                  pai_nome: paiObj ? paiObj.nome : "",
-                }));
-              }}
-            >
-              <MenuItem value="">-- Selecione --</MenuItem>
-              {pais.map((p) => (
-                <MenuItem key={p.id} value={p.id}>
-                  {p.nome} ({p.anilha})
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-          <FormControlLabel
-            control={
-              <Checkbox
-                name="pai_nao_informado"
-                checked={form.pai_nao_informado}
-                onChange={handleChange}
-              />
-            }
-            label="Não Informado"
-          />
-        </Box>
+                    {/* Pai */}
+          <Box display="flex" alignItems="center" gap={2} mt={2}>
+            <FormControl fullWidth>
+              <InputLabel>Pai</InputLabel>
+              <Select
+                name="pai_id"
+                value={form.pai_id || ""}
+                onChange={(e) => {
+                  const id = parseInt(e.target.value, 10);
+                  const paiObj = pais.find((p) => p.id === id);
+                  setForm((prev: any) => ({
+                    ...prev,
+                    pai_id: id,
+                    pai_nome: paiObj ? paiObj.nome : "",
+                  }));
+                }}
+              >
+                <MenuItem value="">-- Selecione --</MenuItem>
+                {pais.map((p) => (
+                  <MenuItem key={p.id} value={p.id}>
+                    {p.nome} ({p.anilha})
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <FormControlLabel
+              control={
+                <Checkbox
+                  name="pai_nao_informado"
+                  checked={form.pai_nao_informado}
+                  onChange={handleChange}
+                />
+              }
+              label="Não Informado"
+            />
+          </Box>
 
-        {/* Mãe */}
-        <Box display="flex" alignItems="center" gap={2} mt={2}>
-          <FormControl fullWidth>
-            <InputLabel>Mãe</InputLabel>
-            <Select
-              name="mae_id"
-              value={form.mae_id || ""}
-              onChange={(e) => {
-                const id = e.target.value;
-                const maeObj = maes.find((m) => m.id === id);
-                setForm((prev: any) => ({
-                  ...prev,
-                  mae_id: id,
-                  mae_nome: maeObj ? maeObj.nome : "",
-                }));
-              }}
-            >
-              <MenuItem value="">-- Selecione --</MenuItem>
-              {maes.map((m) => (
-                <MenuItem key={m.id} value={m.id}>
-                  {m.nome} ({m.anilha})
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-          <FormControlLabel
-            control={
-              <Checkbox
-                name="mae_nao_informado"
-                checked={form.mae_nao_informado}
-                onChange={handleChange}
-              />
-            }
-            label="Não Informado"
-          />
-        </Box>
+          {/* Mãe */}
+          <Box display="flex" alignItems="center" gap={2} mt={2}>
+            <FormControl fullWidth>
+              <InputLabel>Mãe</InputLabel>
+              <Select
+                name="mae_id"
+                value={form.mae_id || ""}
+                onChange={(e) => {
+                  const id = parseInt(e.target.value, 10);
+                  const maeObj = maes.find((m) => m.id === id);
+                  setForm((prev: any) => ({
+                    ...prev,
+                    mae_id: id,
+                    mae_nome: maeObj ? maeObj.nome : "",
+                  }));
+                }}
+              >
+                <MenuItem value="">-- Selecione --</MenuItem>
+                {maes.map((m) => (
+                  <MenuItem key={m.id} value={m.id}>
+                    {m.nome} ({m.anilha})
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <FormControlLabel
+              control={
+                <Checkbox
+                  name="mae_nao_informado"
+                  checked={form.mae_nao_informado}
+                  onChange={handleChange}
+                />
+              }
+              label="Não Informado"
+            />
+          </Box>
 
-        {/* Origem */}
-        <Box display="flex" gap={2} mt={2} alignItems="flex-start">
-          <FormControl fullWidth sx={{ mt: 2 }}>
-            <InputLabel>Criadouro</InputLabel>
-            <Select
-              name="origem_id"
-              value={form.origem_id || ""}
-              onChange={(e) => {
-                const origemSelecionada = e.target.value as string;
-                const origemObj = criadouros.find(
-                  (c) => c.id.toString() === origemSelecionada
-                );
-                setForm((prev: any) => ({
-                  ...prev,
-                  origem_id: origemSelecionada,
-                  origem_nome: origemObj ? origemObj.nome : "",
-                  criacao_propria: origemObj ? origemObj.proprio : false,
-                }));
-              }}
-            >
-              <MenuItem value="">-- Selecione --</MenuItem>
-              {criadouros.map((c) => (
-                <MenuItem key={c.id} value={c.id.toString()}>
-                  {c.nome}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-        </Box>
+          {/* Origem */}
+          <Box display="flex" gap={2} mt={2} alignItems="flex-start">
+            <FormControl fullWidth sx={{ mt: 2 }}>
+              <InputLabel>Criadouro</InputLabel>
+              <Select
+                name="origem_id"
+                value={form.origem_id || ""}
+                onChange={(e) => {
+                  const origemSelecionada = e.target.value as string;
+                  const origemObj = criadouros.find(
+                    (c) => c.id.toString() === origemSelecionada
+                  );
+                  setForm((prev: any) => ({
+                    ...prev,
+                    origem_id: origemSelecionada,
+                    origem_nome: origemObj ? origemObj.nome : "",
+                    criacao_propria: origemObj ? origemObj.proprio : false,
+                  }));
+                }}
+              >
+                <MenuItem value="">-- Selecione --</MenuItem>
+                {criadouros.map((c) => (
+                  <MenuItem key={c.id} value={c.id.toString()}>
+                    {c.nome}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Box>
 
-        {/* Botões */}
-        <Box mt={3} display="flex" gap={2}>
-          <Button type="submit" variant="contained" color="primary">
-            Atualizar
-          </Button>
-          <Button
-            type="button"
-            variant="outlined"
-            color="secondary"
-            onClick={() => router.push("/inicial_page/passaros")}
-          >
-            Cancelar
-          </Button>
-        </Box>
-      </form>
+          {/* Botões */}
+          <Box mt={3} display="flex" gap={2}>
+            <Button type="submit" variant="contained" color="primary">
+              Atualizar
+            </Button>
+            <Button
+              type="button"
+              variant="outlined"
+              color="secondary"
+              onClick={() => router.push("/inicial_page/passaros")}
+            >
+              Cancelar
+            </Button>
+          </Box>
+        </form>
+      </Box>
+
+      {/* Coluna direita: crachá */}
+      <CrachaPassaro form={form} />
     </Box>
-
-    {/* Coluna direita: crachá */}
-    <CrachaPassaro form={form} />
-  </Box>
   );
 }

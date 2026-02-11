@@ -14,7 +14,7 @@ import {
   TableBody,
   Typography,
 } from "@mui/material";
-import { useEmpresa } from "../../context/empresaContext"; // 🔹 importa o contexto da empresa
+import { useEmpresa } from "../../context/empresaContext";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -25,7 +25,7 @@ export default function ListaPassaros() {
   const [busca, setBusca] = useState("");
   const [registros, setRegistros] = useState<any[]>([]);
   const router = useRouter();
-  const { empresaId } = useEmpresa(); // 🔹 pega empresa logada
+  const { empresaId } = useEmpresa();
 
   useEffect(() => {
     if (empresaId) {
@@ -34,43 +34,72 @@ export default function ListaPassaros() {
   }, [empresaId]);
 
   const carregarRegistros = async () => {
-    const { data, error } = await supabase
+     // 🔹 1ª chamada: recalcula genealogia geral
+    await supabase.rpc("atualizar_genealogia_empresa", { empresa_uuid: empresaId });
+
+    // 1ª query: pássaros da empresa
+    const { data: passaros, error } = await supabase
       .from("passaros")
       .select(`
         id,
         nome,
         anilha,
         sexo,
-        especies:especie_id (nome_portugues),
-        criadouros:origem_id (nome_fantasia, razao_social)
+        especie_id,
+        origem_id,
+        pai_id,
+        mae_id
       `)
-      .eq("empresa_id", empresaId) // 🔹 filtra pela empresa logada
-      .order("id", { ascending: true });
+      .eq("empresa_id", empresaId)
+      .order("nome", { ascending: true });
 
-    if (!error && data) {
-      setRegistros(data);
-    } else {
-      console.error("Erro ao carregar pássaros:", error);
+    if (error) {
+      console.log("Erro ao carregar pássaros:", JSON.stringify(error, null, 2));
+      return;
     }
+
+    // 2ª query: todos os nomes de pássaros
+    const { data: todos, error: err2 } = await supabase
+      .from("passaros")
+      .select("id, nome");
+
+    if (err2) {
+      console.log("Erro ao carregar nomes:", JSON.stringify(err2, null, 2));
+      setRegistros(passaros || []);
+      return;
+    }
+
+    // mapa id → nome
+    const mapaNomes: Record<number, string> = {};
+    todos?.forEach((p) => {
+      mapaNomes[p.id] = p.nome;
+    });
+
+    // substitui ids por nomes
+    const registrosComNomes = passaros?.map((p) => ({
+      ...p,
+      pai_nome: p.pai_id ? mapaNomes[p.pai_id] : null,
+      mae_nome: p.mae_id ? mapaNomes[p.mae_id] : null,
+    }));
+
+    setRegistros(registrosComNomes || []);
   };
 
   const filtrarRegistros = () => {
     return registros.filter(
       (r) =>
-        r.nome.toLowerCase().includes(busca.toLowerCase()) ||
-        r.anilha.toLowerCase().includes(busca.toLowerCase())
+        r.nome?.toLowerCase().includes(busca.toLowerCase()) ||
+        r.anilha?.toLowerCase().includes(busca.toLowerCase())
     );
   };
 
   const editarRegistro = (id: number) => {
-  router.push(`/inicial_page/passaros/${id}`); // rota dinâmica correta
-};
-
-
-  const novoRegistro = () => {
-  router.push("/inicial_page/passaros/novo"); // rota correta
+    router.push(`/inicial_page/passaros/${id}`);
   };
 
+  const novoRegistro = () => {
+    router.push("/inicial_page/passaros/novo");
+  };
 
   return (
     <Box sx={{ p: 4 }}>
@@ -86,7 +115,6 @@ export default function ListaPassaros() {
         Lista de Pássaros
       </Typography>
 
-      {/* Barra de busca + botão novo */}
       <Box sx={{ display: "flex", gap: 2, mb: 2 }}>
         <TextField
           label="Pesquisar por Nome ou Anilha"
@@ -105,15 +133,14 @@ export default function ListaPassaros() {
         </Button>
       </Box>
 
-      {/* Tabela de registros */}
       <Table>
         <TableHead>
           <TableRow sx={{ backgroundColor: "#1976d2" }}>
-            <TableCell sx={{ fontWeight: "bold", color: "#fff", width: "25%" }}>Nome</TableCell>
-            <TableCell sx={{ fontWeight: "bold", color: "#fff", width: "20%" }}>Anilha</TableCell>
-            <TableCell sx={{ fontWeight: "bold", color: "#fff", width: "25%" }}>Espécie</TableCell>
-            <TableCell sx={{ fontWeight: "bold", color: "#fff", width: "10%" }}>Sexo</TableCell>
-            <TableCell sx={{ fontWeight: "bold", color: "#fff", width: "20%" }}>Origem</TableCell>
+            <TableCell sx={{ fontWeight: "bold", color: "#fff" }}>Nome</TableCell>
+            <TableCell sx={{ fontWeight: "bold", color: "#fff" }}>Pai</TableCell>
+            <TableCell sx={{ fontWeight: "bold", color: "#fff" }}>Mãe</TableCell>
+            <TableCell sx={{ fontWeight: "bold", color: "#fff" }}>Anilha</TableCell>
+            <TableCell sx={{ fontWeight: "bold", color: "#fff" }}>Sexo</TableCell>
           </TableRow>
         </TableHead>
         <TableBody>
@@ -129,10 +156,10 @@ export default function ListaPassaros() {
               }}
             >
               <TableCell>{r.nome}</TableCell>
+              <TableCell>{r.pai_nome || "-"}</TableCell>
+              <TableCell>{r.mae_nome || "-"}</TableCell>
               <TableCell>{r.anilha}</TableCell>
-              <TableCell>{r.especies?.nome_portugues || "-"}</TableCell>
               <TableCell>{r.sexo}</TableCell>
-              <TableCell>{r.criadouros?.nome_fantasia || r.criadouros?.razao_social || "-"}</TableCell>
             </TableRow>
           ))}
         </TableBody>
