@@ -13,15 +13,20 @@ function formatDate(dateStr: string | null) {
   return `${dia}/${mes}/${ano}`;
 }
 
-// 🔹 Busca genealogia direto da tabela genealogia
+// 🔹 Busca genealogia com alias para diferenciar os dois FKs
 async function getGenealogia(passaroId: number, empresaId: string) {
   const { data, error } = await supabase
     .from("genealogia")
     .select(`
       lado,
       nivel,
-      ascendente_id,
-      passaros!genealogia_ascendente_id_fkey (
+      passaro:passaros!genealogia_passaro_id_fkey (
+        id,
+        nome,
+        anilha,
+        data_nascimento
+      ),
+      ascendente:passaros!genealogia_ascendente_id_fkey (
         id,
         nome,
         anilha,
@@ -41,7 +46,7 @@ async function getGenealogia(passaroId: number, empresaId: string) {
   return data;
 }
 
-// 🔹 Renderização de coluna com fonte adaptativa
+// 🔹 Renderização de coluna da árvore
 function renderColumn(nodes: any[], expectedCount: number) {
   const filled = [...nodes];
   while (filled.length < expectedCount) {
@@ -64,11 +69,11 @@ function renderColumn(nodes: any[], expectedCount: number) {
           key={idx}
           sx={{
             minHeight: "1em",
-            lineHeight: 1.1,
-            fontSize: `${0.55 + idx * 0.05}rem`, // fonte cresce conforme nível
+            lineHeight: 1.2,
+            fontSize: "0.55rem", // fonte reduzida (~8pt)
           }}
         >
-          {n?.passaros?.nome || ""}
+          {n?.ascendente?.nome || ""}
         </Box>
       ))}
     </Box>
@@ -88,7 +93,6 @@ export default function CrachaPassaro({ form }: { form: any }) {
     atualizarArvore();
   }, [form.id, form.empresa_id]);
 
-  // 🔹 Separar colunas por nível
   const col1 = genealogia.filter((g) => g.nivel === 1);
   const col2 = genealogia.filter((g) => g.nivel === 2);
   const col3 = genealogia.filter((g) => g.nivel === 3);
@@ -119,8 +123,9 @@ export default function CrachaPassaro({ form }: { form: any }) {
             alignItems: "flex-start",
             justifyContent: "flex-start",
             fontFamily: "Arial, Helvetica, sans-serif",
-            fontSize: "0.65rem",
+            fontSize: "0.55rem", // fonte reduzida (~8pt)
             p: 0.5,
+            gap: 0.3, // espaçamento vertical compacto
           }}
         >
           {/* Logo */}
@@ -136,27 +141,13 @@ export default function CrachaPassaro({ form }: { form: any }) {
             {/* Logo do criadouro */}
           </Box>
 
-          {/* Labels e dados principais */}
-          <div style={{ fontSize: "0.55rem", marginBottom: "2px" }}>Nome</div>
-          <div style={{ marginLeft: "4px", fontSize: "0.65rem" }}>{form.nome}</div>
-
-          <div style={{ fontSize: "0.55rem", marginBottom: "2px" }}>Anilha</div>
-          <div style={{ marginLeft: "4px", fontSize: "0.65rem" }}>{form.anilha}</div>
-
-          <div style={{ marginLeft: "4px", fontSize: "0.65rem" }}>
-            {formatDate(form.data_nascimento)}
-          </div>
-
-          <div style={{ marginLeft: "4px", fontSize: "0.6rem" }}>
-            {form.especie_nome_portugues}
-          </div>
-
-          <div style={{ marginLeft: "4px", fontSize: "0.6rem" }}>
-            {form.pai_nome ? `Pai: ${form.pai_nome}` : ""}
-          </div>
-          <div style={{ marginLeft: "4px", fontSize: "0.6rem" }}>
-            {form.mae_nome ? `Mãe: ${form.mae_nome}` : ""}
-          </div>
+          {/* Dados principais com labels e valores em negrito */}
+          <div>Nome: <strong>{form.nome}</strong></div>
+          <div>Anilha: <strong>{form.anilha}</strong></div>
+          <div>Nascimento: <strong>{formatDate(form.data_nascimento)}</strong></div>
+          <div>Espécie: <strong>{form.especie_nome_portugues}</strong></div>
+          <div>Mãe: <strong>{form.mae_nome || ""}</strong></div>
+          <div>Pai: <strong>{form.pai_nome || ""}</strong></div>
         </Box>
 
         {/* Lado direito: árvore genealógica */}
