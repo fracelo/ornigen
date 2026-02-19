@@ -1,23 +1,32 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
-import { createClient } from "@supabase/supabase-js";
+import { supabase } from "@/lib/supabaseClient";
+import { formataDados } from "@/lib/formataDados";
+import { useEmpresa } from "@/context/empresaContext";
 import {
-  Box, Button, TextField, Radio, RadioGroup,
-  FormControlLabel, FormControl, FormLabel, Checkbox, Typography
+  Box, Typography, Button, TextField, Paper, CircularProgress,
+  Container, Divider, FormControlLabel, Checkbox, MenuItem, Select, FormControl, InputLabel,
+  Radio, RadioGroup, FormLabel
 } from "@mui/material";
+import SaveIcon from "@mui/icons-material/Save";
+import HouseSidingIcon from "@mui/icons-material/HouseSiding";
+import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
-
-export default function EditarCriadouro() {
+export default function CadastroCriadouroPage() {
   const router = useRouter();
   const params = useParams();
-  const id = Number(params.id);
+  const { empresaId } = useEmpresa();
+  
+  // O ID pode vir de params.id (dependendo da sua rota configurada)
+  const idCriadouro = params.id ? Number(params.id) : null;
+  const isEdicao = !!idCriadouro;
 
+  const [loading, setLoading] = useState(false);
+  const [etapaInicial, setEtapaInicial] = useState(!isEdicao); // Pula a escolha PF/PJ se for edição
+
+  // Estados do Formulário
   const [tipoPessoa, setTipoPessoa] = useState<"PF" | "PJ" | "">("");
   const [razaoSocial, setRazaoSocial] = useState("");
   const [nomeFantasia, setNomeFantasia] = useState("");
@@ -32,162 +41,215 @@ export default function EditarCriadouro() {
   const [telefone, setTelefone] = useState("");
   const [eProprio, setEProprio] = useState(false);
 
-  // 🔹 Carregar dados do Supabase
-  useEffect(() => {
-    const carregarDados = async () => {
-      const { data, error } = await supabase
-        .from("criadouros")
-        .select("*")
-        .eq("id", id)
-        .single();
+  // Novos campos SISPASS/IBAMA
+  const [ctfNumero, setCtfNumero] = useState("");
+  const [registroSispass, setRegistroSispass] = useState("");
+  const [categoriaCriador, setCategoriaCriador] = useState("Amador");
+  const [dataValidade, setDataValidade] = useState("");
+  const [capacidadeAves, setCapacidadeAves] = useState(0);
 
-      if (error) {
-        alert("Erro ao carregar criadouro: " + error.message);
-      } else if (data) {
-        setTipoPessoa(data.tipo_pessoa as "PF" | "PJ");
-        setRazaoSocial(data.razao_social || "");
-        setNomeFantasia(data.nome_fantasia || "");
-        setDocumento(data.documento || "");
-        setCep(data.cep || "");
-        setEndereco(data.endereco || "");
-        setCidade(data.cidade || "");
-        setEstado(data.estado || "");
-        setResponsavelNome(data.responsavel_nome || "");
-        setResponsavelCpf(data.responsavel_cpf || "");
-        setEmail(data.email || "");
-        setTelefone(data.telefone || "");
-        setEProprio(data.e_proprio || false);
-      }
-    };
-
-    if (!isNaN(id)) carregarDados();
-  }, [id]);
-
-  // 🔹 Máscaras
-  const formatCPF = (v: string) => v.replace(/\D/g, "")
-    .replace(/(\d{3})(\d)/, "$1.$2")
-    .replace(/(\d{3})(\d)/, "$1.$2")
-    .replace(/(\d{3})(\d{1,2})$/, "$1-$2")
-    .slice(0, 14);
-
-  const formatCNPJ = (v: string) => v.replace(/\D/g, "")
-    .replace(/(\d{2})(\d)/, "$1.$2")
-    .replace(/(\d{3})(\d)/, "$1.$2")
-    .replace(/(\d{3})(\d)/, "$1/$2")
-    .replace(/(\d{4})(\d{1,2})$/, "$1-$2")
-    .slice(0, 18);
-
-  // 🔹 Salvar alterações
-  const handleSalvar = async () => {
-    let nomeFantasiaFinal = nomeFantasia;
-    let razaoSocialFinal = razaoSocial;
-
-    if (tipoPessoa === "PF") {
-      nomeFantasiaFinal = razaoSocial;
-      razaoSocialFinal = razaoSocial;
-    }
-
-    const { error } = await supabase
+  // 🔹 Carregar dados para Edição
+  const carregarDados = useCallback(async () => {
+    if (!idCriadouro) return;
+    setLoading(true);
+    const { data, error } = await supabase
       .from("criadouros")
-      .update({
-        tipo_pessoa: tipoPessoa,
-        nome_fantasia: nomeFantasiaFinal,
-        razao_social: razaoSocialFinal,
-        documento, cep, endereco, cidade, estado,
-        responsavel_nome: responsavelNome,
-        responsavel_cpf: responsavelCpf,
-        email, telefone, e_proprio: eProprio,
-      })
-      .eq("id", id);
+      .select("*")
+      .eq("id", idCriadouro)
+      .single();
 
-    if (error) {
-      alert("Erro ao atualizar: " + error.message);
-    } else {
-      alert("Criadouro atualizado com sucesso!");
-      router.push("/inicial_page/criadouros");
+    if (data) {
+      setTipoPessoa(data.tipo_pessoa?.trim() as "PF" | "PJ");
+      setRazaoSocial(data.razao_social || "");
+      setNomeFantasia(data.nome_fantasia || "");
+      setDocumento(formataDados(data.documento || "", data.tipo_pessoa?.trim() === "PF" ? "cpf" : "cnpj"));
+      setCep(formataDados(data.cep || "", "cep"));
+      setEndereco(data.endereco || "");
+      setCidade(data.cidade || "");
+      setEstado(data.estado || "");
+      setResponsavelNome(data.responsavel_nome || "");
+      setResponsavelCpf(formataDados(data.responsavel_cpf || "", "cpf"));
+      setEmail(data.email || "");
+      setTelefone(formataDados(data.telefone || "", "celular"));
+      setEProprio(data.e_proprio || false);
+      // Campos Novos
+      setCtfNumero(data.ctf_numero || "");
+      setRegistroSispass(data.registro_sispass || "");
+      setCategoriaCriador(data.categoria_criador || "Amador");
+      setDataValidade(data.data_validade_licenca || "");
+      setCapacidadeAves(data.capacidade_maxima_aves || 0);
+    }
+    setLoading(false);
+  }, [idCriadouro]);
+
+  useEffect(() => { carregarDados(); }, [carregarDados]);
+
+  // 🔹 Lógica de CEP Automático
+  const handleCepChange = async (v: string) => {
+    const limpo = v.replace(/\D/g, "");
+    setCep(formataDados(limpo, "cep"));
+    if (limpo.length === 8) {
+      const res = await fetch(`https://viacep.com.br/ws/${limpo}/json/`);
+      const d = await res.json();
+      if (!d.erro) {
+        setEndereco(d.logradouro || "");
+        setCidade(d.localidade || "");
+        setEstado(d.uf || "");
+      }
     }
   };
 
+  const handleSalvar = async () => {
+    if (!empresaId) return alert("Sessão expirada. Recarregue a página.");
+    setLoading(true);
+
+    const dadosFinal = {
+      tipo_pessoa: tipoPessoa,
+      razao_social: razaoSocial,
+      nome_fantasia: tipoPessoa === "PF" ? razaoSocial : nomeFantasia,
+      documento: documento.replace(/\D/g, ""),
+      cep: cep.replace(/\D/g, ""),
+      endereco, cidade, estado,
+      responsavel_nome: responsavelNome,
+      responsavel_cpf: responsavelCpf.replace(/\D/g, ""),
+      email, telefone, e_proprio: eProprio,
+      empresa_uuid: empresaId,
+      ctf_numero: ctfNumero,
+      registro_sispass: registroSispass,
+      categoria_criador: categoriaCriador,
+      data_validade_licenca: dataValidade || null,
+      capacidade_maxima_aves: capacidadeAves
+    };
+
+    const { error } = isEdicao 
+      ? await supabase.from("criadouros").update(dadosFinal).eq("id", idCriadouro)
+      : await supabase.from("criadouros").insert([dadosFinal]);
+
+    if (error) alert("Erro ao salvar: " + error.message);
+    else {
+      alert(isEdicao ? "Criadouro atualizado!" : "Criadouro cadastrado!");
+      router.push("/inicial_page/criadouros");
+    }
+    setLoading(false);
+  };
+
   return (
-    <Box sx={{ p: 4 }}>
-      <Typography variant="h4" sx={{ mb: 3, color: "#0D47A1", fontWeight: "bold" }}>
-        Editar Criadouro
-      </Typography>
+    <Container maxWidth="lg" sx={{ py: 2 }}>
+      <Paper elevation={3} sx={{ p: 4, borderRadius: 2 }}>
+        
+        {/* Cabeçalho */}
+        <Box sx={{ display: 'flex', alignItems: 'center', mb: 4, justifyContent: 'space-between' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <HouseSidingIcon color="primary" sx={{ fontSize: 30 }} />
+            <Typography variant="h5" fontWeight="bold" color="primary">
+              {isEdicao ? "Editar Criadouro" : "Novo Criadouro"}
+            </Typography>
+          </Box>
+          <Button startIcon={<ArrowBackIcon />} onClick={() => router.back()}>Voltar</Button>
+        </Box>
 
-      {/* Tipo de Pessoa */}
-      <FormControl component="fieldset" sx={{ mb: 3 }}>
-        <FormLabel>Tipo de Pessoa</FormLabel>
-        <RadioGroup
-          value={tipoPessoa}
-          onChange={(e) => setTipoPessoa(e.target.value as "PF" | "PJ")}
-          row
-        >
-          <FormControlLabel value="PF" control={<Radio />} label="Pessoa Física" />
-          <FormControlLabel value="PJ" control={<Radio />} label="Pessoa Jurídica" />
-        </RadioGroup>
-      </FormControl>
+        {/* Escolha Inicial PF/PJ (Apenas para novos cadastros) */}
+        {etapaInicial && !isEdicao ? (
+          <Box sx={{ textAlign: 'center', py: 5 }}>
+            <FormControl>
+              <FormLabel sx={{ mb: 2, fontSize: '1.2rem' }}>Tipo de Registro do Criadouro</FormLabel>
+              <RadioGroup row value={tipoPessoa} onChange={(e) => setTipoPessoa(e.target.value as "PF" | "PJ")}>
+                <FormControlLabel value="PF" control={<Radio />} label="Pessoa Física" />
+                <FormControlLabel value="PJ" control={<Radio />} label="Pessoa Jurídica" />
+              </RadioGroup>
+              <Button 
+                variant="contained" 
+                sx={{ mt: 4, px: 6 }} 
+                disabled={!tipoPessoa} 
+                onClick={() => setEtapaInicial(false)}
+              >
+                Continuar para o Formulário
+              </Button>
+            </FormControl>
+          </Box>
+        ) : (
+          <Box>
+            {/* 1ª LINHA: NOME E DOCUMENTO */}
+            <Box sx={{ display: 'flex', gap: 2, mb: 3, flexDirection: { xs: 'column', sm: 'row' } }}>
+              <TextField
+                label={tipoPessoa === "PF" ? "Nome Completo" : "Razão Social"}
+                sx={{ flex: 3 }}
+                value={razaoSocial}
+                onChange={(e) => setRazaoSocial(e.target.value)}
+                InputProps={{ style: { fontSize: '1.1rem', fontWeight: '600' } }}
+              />
+              <TextField
+                label={tipoPessoa === "PF" ? "CPF" : "CNPJ"}
+                sx={{ width: { sm: '220px' } }}
+                value={documento}
+                onChange={(e) => {
+                  const v = e.target.value.replace(/\D/g, "");
+                  setDocumento(formataDados(v, tipoPessoa === "PF" ? "cpf" : "cnpj"));
+                }}
+              />
+            </Box>
 
-      {/* Campos dinâmicos */}
-      {tipoPessoa === "PF" && (
-        <>
-          <TextField label="Nome" value={razaoSocial} onChange={(e) => setRazaoSocial(e.target.value)} fullWidth sx={{ mb: 2 }} />
-          <TextField label="CPF" value={documento} onChange={(e) => setDocumento(formatCPF(e.target.value))} sx={{ width: { xs: "100%", sm: "50%" }, mb: 2 }} />
-        </>
-      )}
+            {/* 2ª LINHA: FANTASIA (SE PJ) */}
+            {tipoPessoa === "PJ" && (
+              <Box sx={{ mb: 3 }}>
+                <TextField label="Nome Fantasia" fullWidth value={nomeFantasia} onChange={(e) => setNomeFantasia(e.target.value)} />
+              </Box>
+            )}
 
-      {tipoPessoa === "PJ" && (
-        <>
-          <TextField label="Razão Social" value={razaoSocial} onChange={(e) => setRazaoSocial(e.target.value)} fullWidth sx={{ mb: 2 }} />
-          <TextField label="Nome Fantasia" value={nomeFantasia} onChange={(e) => setNomeFantasia(e.target.value)} fullWidth sx={{ mb: 2 }} />
-          <TextField label="CNPJ" value={documento} onChange={(e) => setDocumento(formatCNPJ(e.target.value))} sx={{ width: { xs: "100%", sm: "50%" }, mb: 2 }} />
-        </>
-      )}
+            {/* 3ª LINHA: ENDEREÇO */}
+            <Box sx={{ display: 'flex', gap: 2, mb: 3, flexDirection: { xs: 'column', sm: 'row' } }}>
+              <TextField label="CEP" sx={{ width: '150px' }} value={cep} onChange={(e) => handleCepChange(e.target.value)} />
+              <TextField label="Logradouro" sx={{ flex: 1 }} value={endereco} onChange={(e) => setEndereco(e.target.value)} />
+              <TextField label="Cidade" sx={{ flex: 1 }} value={cidade} onChange={(e) => setCidade(e.target.value)} />
+              <TextField label="UF" sx={{ width: '80px' }} value={estado} onChange={(e) => setEstado(e.target.value.toUpperCase())} inputProps={{ maxLength: 2 }} />
+            </Box>
 
-      {/* Linha com CEP, Estado e Cidade */}
-      <Box sx={{ display: "flex", gap: 2, mb: 2 }}>
-        <TextField label="CEP" value={cep} onChange={(e) => setCep(e.target.value)} sx={{ width: "30%" }} />
-        <TextField label="Estado" value={estado} onChange={(e) => setEstado(e.target.value)} sx={{ width: "20%" }} />
-        <TextField label="Cidade" value={cidade} onChange={(e) => setCidade(e.target.value)} sx={{ flex: 1 }} />
-      </Box>
+            <Divider sx={{ my: 3 }}>Responsável e Contato</Divider>
 
-      <TextField label="Endereço" value={endereco} onChange={(e) => setEndereco(e.target.value)} fullWidth sx={{ mb: 2 }} />
+            {/* 4ª LINHA: RESPONSÁVEL */}
+            <Box sx={{ display: 'flex', gap: 2, mb: 3, flexDirection: { xs: 'column', sm: 'row' } }}>
+              <TextField label="Nome do Responsável" sx={{ flex: 2 }} value={responsavelNome} onChange={(e) => setResponsavelNome(e.target.value)} />
+              <TextField label="CPF Responsável" sx={{ flex: 1 }} value={responsavelCpf} onChange={(e) => setResponsavelCpf(formataDados(e.target.value, "cpf"))} />
+            </Box>
 
-      {/* Linha com Responsável Nome e CPF */}
-      <Box sx={{ display: "flex", gap: 2, mb: 2 }}>
-        <TextField label="Responsável Nome" value={responsavelNome} onChange={(e) => setResponsavelNome(e.target.value)} sx={{ flex: 1 }} />
-        <TextField label="Responsável CPF" value={responsavelCpf} onChange={(e) => setResponsavelCpf(e.target.value)} sx={{ flex: 1 }} />
-      </Box>
+            {/* 5ª LINHA: CONTATO */}
+            <Box sx={{ display: 'flex', gap: 2, mb: 3, flexDirection: { xs: 'column', sm: 'row' } }}>
+              <TextField label="E-mail" sx={{ flex: 2 }} value={email} onChange={(e) => setEmail(e.target.value)} />
+              <TextField label="Telefone" sx={{ flex: 1 }} value={telefone} onChange={(e) => setTelefone(formataDados(e.target.value, "celular"))} />
+              <FormControlLabel control={<Checkbox checked={eProprio} onChange={(e) => setEProprio(e.target.checked)} />} label="É próprio" sx={{ ml: 1 }} />
+            </Box>
 
-      {/* Linha com Email e Telefone */}
-      <Box sx={{ display: "flex", gap: 2, mb: 2 }}>
-        <TextField label="E-mail" value={email} onChange={(e) => setEmail(e.target.value)} sx={{ flex: 1 }} />
-        <TextField label="Telefone" value={telefone} onChange={(e) => setTelefone(e.target.value)} sx={{ flex: 1 }} />
-      </Box>
+            <Divider sx={{ my: 3 }}>Dados SISPASS / IBAMA</Divider>
 
-      <FormControlLabel
-        control={<Checkbox checked={eProprio} onChange={(e) => setEProprio(e.target.checked)} />}
-        label="É próprio"
-        sx={{ mb: 2 }}
-      />
+            {/* 6ª LINHA: REGISTROS AMBIENTAIS */}
+            <Box sx={{ display: 'flex', gap: 2, mb: 3, flexDirection: { xs: 'column', sm: 'row' } }}>
+              <TextField label="CTF (IBAMA)" sx={{ flex: 1 }} value={ctfNumero} onChange={(e) => setCtfNumero(e.target.value)} />
+              <TextField label="Registro SISPASS" sx={{ flex: 1 }} value={registroSispass} onChange={(e) => setRegistroSispass(e.target.value)} />
+              <FormControl sx={{ flex: 1 }}>
+                <InputLabel>Categoria</InputLabel>
+                <Select value={categoriaCriador} label="Categoria" onChange={(e) => setCategoriaCriador(e.target.value)}>
+                  <MenuItem value="Amador">Amador</MenuItem>
+                  <MenuItem value="Comercial">Comercial</MenuItem>
+                </Select>
+              </FormControl>
+            </Box>
 
- {/* Botões */}
-      <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 2, mt: 3 }}>
-        <Button
-          variant="outlined"
-          color="secondary"
-          onClick={() => router.push("/inicial_page/criadouros")}
-        >
-          Cancelar
-        </Button>
-        <Button
-          variant="contained"
-          color="primary"
-          onClick={handleSalvar}
-        >
-          Salvar
-        </Button>
-      </Box>
+            {/* 7ª LINHA: VALIDADE E CAPACIDADE */}
+            <Box sx={{ display: 'flex', gap: 2, mb: 3, flexDirection: { xs: 'column', sm: 'row' } }}>
+              <TextField label="Validade da Licença" type="date" sx={{ flex: 1 }} InputLabelProps={{ shrink: true }} value={dataValidade} onChange={(e) => setDataValidade(e.target.value)} />
+              <TextField label="Capacidade Máxima Aves" type="number" sx={{ flex: 1 }} value={capacidadeAves} onChange={(e) => setCapacidadeAves(Number(e.target.value))} />
+              <Box sx={{ flex: 1 }} />
+            </Box>
 
-    </Box>    /* fecha o Box principal */
-  );          // fecha o return
-}             // fecha a função
+            <Box sx={{ mt: 5, display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
+              <Button variant="outlined" color="secondary" onClick={() => router.back()}>Cancelar</Button>
+              <Button variant="contained" size="large" startIcon={<SaveIcon />} onClick={handleSalvar} disabled={loading} sx={{ px: 6 }}>
+                {loading ? <CircularProgress size={24} color="inherit" /> : "Salvar Alterações"}
+              </Button>
+            </Box>
+          </Box>
+        )}
+      </Paper>
+    </Container>
+  );
+}

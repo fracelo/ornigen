@@ -5,7 +5,7 @@ import { supabase } from "../lib/supabaseClient";
 type AuthContextType = {
   usuarioLogado: boolean;
   setUsuarioLogado: (value: boolean) => void;
-  usuarioId: string | null; // 🔹 novo campo
+  usuarioId: string | null;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -14,15 +14,34 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [usuarioLogado, setUsuarioLogado] = useState(false);
   const [usuarioId, setUsuarioId] = useState<string | null>(null);
 
+  // 🔹 Item 1: Carrega a sessão inicial
   useEffect(() => {
-    const getUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
+    const getSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
         setUsuarioLogado(true);
-        setUsuarioId(user.id); // 🔹 pega o UUID do usuário logado
+        setUsuarioId(session.user.id);
+      } else {
+        setUsuarioLogado(false);
+        setUsuarioId(null);
       }
     };
-    getUser();
+    getSession();
+  }, []);
+
+  // 🔹 Item 2: Escuta mudanças de autenticação (login/logout)
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) {
+        setUsuarioLogado(true);
+        setUsuarioId(session.user.id);
+      } else {
+        setUsuarioLogado(false);
+        setUsuarioId(null);
+      }
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   return (

@@ -2,69 +2,140 @@
 
 import { useState } from "react";
 import { supabase } from "../lib/supabaseClient";
+import { useRouter } from "next/navigation";
+import {
+  Box,
+  Typography,
+  TextField,
+  Button,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+} from "@mui/material";
 
 export default function RecuperarSenhaPage() {
   const [email, setEmail] = useState("");
-  const [mensagem, setMensagem] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [openDialog, setOpenDialog] = useState(false);
+  const [dialogTitle, setDialogTitle] = useState("");
+  const [dialogMessage, setDialogMessage] = useState("");
+
+  const router = useRouter();
 
   const handleRecuperarSenha = async () => {
-    setLoading(true);
-    setMensagem("");
-
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/nova-senha`,
+      redirectTo: "http://localhost:3000/reset-password", // 🔹 durante testes locais
     });
 
     if (error) {
-      setMensagem("Erro ao enviar e-mail: " + error.message);
+      setDialogTitle("Erro na Recuperação");
+      setDialogMessage("Não foi possível enviar o e‑mail de recuperação: " + error.message);
     } else {
-      setMensagem("Verifique sua caixa de entrada para redefinir a senha.");
+      setDialogTitle("E‑mail enviado!");
+      setDialogMessage(
+        "Verifique sua caixa de entrada e clique no link para redefinir sua senha. " +
+        "Caso não encontre o e‑mail, confira também a pasta de Spam."
+      );
     }
-
-    setLoading(false);
+    setOpenDialog(true);
   };
 
   return (
-    <div className="login-container">
-      {/* Logo acima do card */}
-      <div className="logo-area">
-        <img src="/logo-ornigen.png" alt="Logo Origen" className="logo" />
-      </div>
+    <Box
+      sx={{
+        minHeight: "100vh",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        bgcolor: "#fff",
+      }}
+    >
+      <Box sx={{ mb: 3 }}>
+        <img src="/logo-ornigen.png" alt="Logo OrniGen" style={{ width: "250px" }} />
+      </Box>
 
-      {/* Card de recuperação */}
-      <div className="card login-card">
-        <h2 className="login-title">Recuperar Senha</h2>
+      {/* 🔹 Card de Recuperar Senha */}
+      <Box
+        sx={{
+          width: 400,
+          p: 4,
+          boxShadow: 6,
+          borderRadius: 2,
+          border: "2px solid darkblue",
+          backgroundColor: "#fff",
+        }}
+      >
+        <Typography
+          variant="h5"
+          sx={{
+            color: "darkblue",
+            fontWeight: "bold",
+            textAlign: "center",
+            mb: 3,
+          }}
+        >
+          Recuperar Senha
+        </Typography>
 
-        <div className="form-group">
-          <label htmlFor="email">Digite o e-mail cadastrado:</label>
-          <input
-            id="email"
+        <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+          <TextField
+            label="E-mail"
             type="email"
-            className="input"
-            placeholder="exemplo@dominio.com"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            autoComplete="off"
+            fullWidth
           />
-        </div>
 
-        <button
-          type="button"
-          className="btn"
-          onClick={handleRecuperarSenha}
-          disabled={loading}
-        >
-          {loading ? "Enviando..." : "Enviar link de recuperação"}
-        </button>
+          {/* 🔹 Botão azul escuro */}
+          <Button
+            variant="contained"
+            sx={{ backgroundColor: "darkblue", "&:hover": { backgroundColor: "#0d47a1" } }}
+            onClick={handleRecuperarSenha}
+            disabled={!email}
+          >
+            Enviar Link de Recuperação
+          </Button>
+        </Box>
 
-        {mensagem && <p>{mensagem}</p>}
+        {/* 🔹 Links abaixo do botão */}
+        <Box sx={{ mt: 3, textAlign: "center" }}>
+          <Typography
+            sx={{ color: "darkblue", cursor: "pointer", mb: 1 }}
+            onClick={() => router.push("/login")}
+          >
+            Ir para Login
+          </Typography>
+          <Typography
+            sx={{ color: "darkblue", cursor: "pointer" }}
+            onClick={() => router.push("/novo-usuario")}
+          >
+            Criar Novo Usuário
+          </Typography>
+        </Box>
+      </Box>
 
-        <div className="login-links">
-          <a href="/login">Voltar ao login</a>
-          <a href="/registro">Novo registro</a>
-        </div>
-      </div>
-    </div>
+      {/* 🔹 Pop-out de feedback */}
+      <Dialog open={openDialog} onClose={() => setOpenDialog(false)}>
+        <DialogTitle>{dialogTitle}</DialogTitle>
+        <DialogContent>
+          <Typography>{dialogMessage}</Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => {
+              setOpenDialog(false);
+              if (dialogTitle === "E‑mail enviado!") {
+                router.push("/login");
+              }
+            }}
+            variant="contained"
+            sx={{ backgroundColor: "darkblue", "&:hover": { backgroundColor: "#0d47a1" } }}
+          >
+            {dialogTitle === "E‑mail enviado!" ? "Ir para Login" : "Fechar"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </Box>
   );
 }

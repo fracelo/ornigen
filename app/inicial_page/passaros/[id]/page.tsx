@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { Typography } from "@mui/material";
 import { useRouter, useParams } from "next/navigation";
 import { supabase } from "../../../lib/supabaseClient";
 import {
@@ -47,6 +48,7 @@ export default function EditarPassaroPage() {
   const [pais, setPais] = useState<any[]>([]);
   const [maes, setMaes] = useState<any[]>([]);
   const [criadouros, setCriadouros] = useState<{ id: number; nome: string; proprio: boolean }[]>([]);
+  const [crachaConcluido, setCrachaConcluido] = useState(false);
 
   // 🔹 Busca espécies com paginação automática
   useEffect(() => {
@@ -80,7 +82,7 @@ export default function EditarPassaroPage() {
     };
 
     fetchEspecies();
-  }, []);
+  }, [form.especie_id]);
 
   // 🔹 Carregar dados do pássaro
   useEffect(() => {
@@ -100,6 +102,7 @@ export default function EditarPassaroPage() {
           especie_nome:
             especies.find((e) => e.id === data.especie_id)?.nome_portugues || "",
         }));
+        setCrachaConcluido(true); // 🔹 marca crachá como pronto
       }
     };
     fetchPassaro();
@@ -127,7 +130,6 @@ export default function EditarPassaroPage() {
 
       setMaes(dataMaes || []);
     };
-
     fetchPaisEMaes();
   }, [passaroId]);
 
@@ -184,7 +186,7 @@ export default function EditarPassaroPage() {
   };
 
   return (
-    <Box display="flex" gap={4}>
+    <Box display="flex" gap={2} sx={{ minHeight: "100vh" }}>
       {/* Coluna esquerda: formulário */}
       <Box sx={{ width: 900, p: 4, mx: "auto", mt: 4, boxShadow: 3, borderRadius: 2 }}>
         <h2>Editar Pássaro</h2>

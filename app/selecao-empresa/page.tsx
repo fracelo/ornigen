@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 import { useEmpresa } from "../context/empresaContext";
-import CadastroEmpresaPage from "../empresas/page";
+import CadastroEmpresaPage from "../inicial_page/empresas/page";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,

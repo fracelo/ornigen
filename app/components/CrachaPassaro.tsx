@@ -1,16 +1,13 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Box } from "@mui/material";
+import { Box, Typography } from "@mui/material";
 import { supabase } from "@/lib/supabaseClient";
 
 function formatDate(dateStr: string | null) {
   if (!dateStr) return "";
   const d = new Date(dateStr);
-  const dia = String(d.getDate()).padStart(2, "0");
-  const mes = String(d.getMonth() + 1).padStart(2, "0");
-  const ano = d.getFullYear();
-  return `${dia}/${mes}/${ano}`;
+  return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
 }
 
 // 🔹 Busca genealogia com alias para diferenciar os dois FKs
@@ -49,10 +46,7 @@ async function getGenealogia(passaroId: number, empresaId: string) {
 // 🔹 Renderização de coluna da árvore
 function renderColumn(nodes: any[], expectedCount: number) {
   const filled = [...nodes];
-  while (filled.length < expectedCount) {
-    filled.push(null);
-  }
-
+  while (filled.length < expectedCount) filled.push(null);
   return (
     <Box
       sx={{
@@ -101,8 +95,8 @@ export default function CrachaPassaro({ form }: { form: any }) {
   return (
     <Box
       sx={{
-        width: "9cm",
-        height: "5.5cm",
+        width: "10cm",
+        height: "6cm",
         display: "flex",
         border: "1px solid #000",
         alignItems: "center",
@@ -114,7 +108,7 @@ export default function CrachaPassaro({ form }: { form: any }) {
         {/* Lado esquerdo: fundo azul */}
         <Box
           sx={{
-            width: "3cm",
+            width: "3cm", // 🔹 reduzido
             height: "100%",
             backgroundColor: "darkblue",
             color: "white",
@@ -136,10 +130,9 @@ export default function CrachaPassaro({ form }: { form: any }) {
               backgroundColor: "white",
               mb: 0.5,
               alignSelf: "center",
+              borderRadius: "4px",
             }}
-          >
-            {/* Logo do criadouro */}
-          </Box>
+          />
 
           {/* Dados principais com labels e valores em negrito */}
           <div>Nome: <strong>{form.nome}</strong></div>

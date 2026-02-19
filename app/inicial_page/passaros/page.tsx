@@ -117,19 +117,29 @@ export default function ListaPassaros() {
 
       <Box sx={{ display: "flex", gap: 2, mb: 2 }}>
         <TextField
-          label="Pesquisar por Nome ou Anilha"
+          size="small"
+          placeholder="Buscar por Nome, Anilha ou Espécie"
           value={busca}
           onChange={(e) => setBusca(e.target.value)}
-          sx={{ flex: 1 }}
+          sx={{ width: "600px" }} // 🔹 campo maior
         />
         <Button
           variant="contained"
           color="primary"
           size="large"
           onClick={novoRegistro}
-          sx={{ minWidth: 180, height: 56 }}
+          sx={{ minWidth: 180, height: 40 }}
         >
           Novo
+        </Button>
+        <Button
+          variant="contained" // 🔹 igual ao botão Novo
+          color="primary"
+          size="large"
+          onClick={listarCrachas}
+          sx={{ minWidth: 180, height: 40 }}
+        >
+          Listar Crachás
         </Button>
       </Box>
 

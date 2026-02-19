@@ -17,10 +17,13 @@ import {
   Select,
   MenuItem,
   Checkbox,
+  Typography,
 } from "@mui/material";
 import Autocomplete from "@mui/material/Autocomplete";
 
-// 🔹 Função para remover acentos, espaços e hífens
+// 🔹 Importa o crachá
+import CrachaPassaro from "../../../components/CrachaPassaro";
+
 const normalizeText = (text: string) =>
   text
     ? text
@@ -57,7 +60,7 @@ export default function NovoPassaroPage() {
   const [pais, setPais] = useState<any[]>([]);
   const [maes, setMaes] = useState<any[]>([]);
 
-  // 🔹 Busca espécies com paginação automática
+  // 🔹 Busca espécies
   useEffect(() => {
     const fetchEspecies = async () => {
       let todasEspecies: any[] = [];
@@ -79,28 +82,15 @@ export default function NovoPassaroPage() {
 
         todasEspecies = [...todasEspecies, ...data];
 
-        if (data.length < 1000) break; // chegou no fim
+        if (data.length < 1000) break;
         from += 1000;
         to += 1000;
       }
-
-      console.log("Total de espécies carregadas:", todasEspecies.length);
 
       const ordenadas = todasEspecies.sort((a, b) =>
         a.nome_portugues.localeCompare(b.nome_portugues, "pt", { sensitivity: "base" })
       );
       setEspecies(ordenadas);
-
-      // 🔹 Pré-seleciona o registro 1034 - trinca-ferro
-      const trinca = ordenadas.find((e) => e.id === 1034);
-      if (trinca) {
-        console.log("Pré-selecionando espécie:", trinca);
-        setForm((prev: any) => ({
-          ...prev,
-          especie_id: trinca.id.toString(),
-          especie_nome: trinca.nome_portugues,
-        }));
-      }
     };
     fetchEspecies();
   }, []);
@@ -182,22 +172,7 @@ export default function NovoPassaroPage() {
       alert("Erro ao cadastrar: " + error.message);
     } else {
       alert("Pássaro cadastrado com sucesso!");
-      setForm({
-        nome: "",
-        anilha: "",
-        data_nascimento: "",
-        especie_id: "",
-        especie_nome: "",
-        sexo: "M",
-        pai_id: null,
-        mae_id: null,
-        pai_nao_informado: false,
-        mae_nao_informado: false,
-        criacao_propria: true,
-        data_recebimento: null,
-        origem_id: "" as string | null,
-        origem_nome: "",
-      });
+      router.push("/inicial_page/passaros");
     }
   };
 
@@ -206,9 +181,25 @@ export default function NovoPassaroPage() {
   };
 
   return (
-    <Box sx={{ width: 900, p: 4, mx: "auto", mt: 4, boxShadow: 3, borderRadius: 2 }}>
-      <h2>Novo Pássaro</h2>
-      <form onSubmit={handleSubmit}>
+    <Box display="flex" gap={4} sx={{ minHeight: "100vh" }}>
+      {/* Coluna esquerda: formulário */}
+      <Box
+        sx={{
+          flex: 1,
+          display: "flex",
+          alignItems: "flex-start",
+          justifyContent: "center",
+        }}
+      >
+        <Box sx={{ width: 900, p: 4, boxShadow: 3, borderRadius: 2 }}>
+          <Typography
+            variant="h4"
+            sx={{ color: "darkblue", fontWeight: "bold", textAlign: "center", mb: 3 }}
+          >
+            Novo Pássaro
+          </Typography>
+
+          <form onSubmit={handleSubmit}>
         {/* Nome, Anilha, Data de Nascimento na mesma linha */}
         <Box display="flex" gap={2} mt={2}>
           <TextField
@@ -412,6 +403,29 @@ export default function NovoPassaroPage() {
           </Button>
         </Box>
       </form>
+        </Box>
+      </Box>
+
+      {/* Coluna direita: crachá */}
+      <Box
+        sx={{
+          flex: 1,
+          display: "flex",
+          alignItems: "flex-start",
+          justifyContent: "center",
+        }}
+      >
+        <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+          <Typography
+            variant="h5"
+            sx={{ color: "darkblue", fontWeight: "bold", textAlign: "center", mb: 3 }}
+          >
+            Pré-visualização do Crachá
+          </Typography>
+
+          <CrachaPassaro form={form} />
+        </Box>
+      </Box>
     </Box>
   );
 }

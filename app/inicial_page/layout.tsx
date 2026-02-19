@@ -24,14 +24,18 @@ import ExpandMore from "@mui/icons-material/ExpandMore";
 import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "../context/authContext";
 import { useEmpresa } from "../context/empresaContext";
+import { supabase } from "../lib/supabaseClient";
+import ShoppingCartIcon from "@mui/icons-material/ShoppingCart"; // Novo ícone
+import InventoryIcon from "@mui/icons-material/Inventory"; // Novo ícone para estoque
 
 export default function InicialLayout({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
   const [openPassaros, setOpenPassaros] = useState(false);
   const { usuarioLogado, setUsuarioLogado } = useAuth();
-  const { nomeEmpresa } = useEmpresa();
+  const { nomeEmpresa, setEmpresaId, setNomeEmpresa } = useEmpresa();
   const router = useRouter();
   const pathname = usePathname();
+  const [openAnilhas, setOpenAnilhas] = useState(false); // Novo estado para o submenu de anilhas
 
   useEffect(() => {
     if (!usuarioLogado) {
@@ -48,10 +52,20 @@ export default function InicialLayout({ children }: { children: React.ReactNode 
     router.push(path);
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    // encerra sessão no Supabase
+    await supabase.auth.signOut();
+
+    // limpa contexto local
     setUsuarioLogado(false);
+    setEmpresaId(null);
+    setNomeEmpresa("");
+
+    // fecha o menu lateral
     setOpen(false);
-    router.push("/login");
+
+    // redireciona para tela inicial
+    router.push("/");
   };
 
   return (
@@ -72,7 +86,7 @@ export default function InicialLayout({ children }: { children: React.ReactNode 
             OrniGen {nomeEmpresa ? ` - ${nomeEmpresa}` : ""}
           </Typography>
 
-          <IconButton color="inherit" onClick={() => router.push("/empresas")}>
+          <IconButton color="inherit" onClick={() => router.push("/inicial_page/empresas")}>
             <SettingsIcon />
           </IconButton>
         </Toolbar>
@@ -86,7 +100,7 @@ export default function InicialLayout({ children }: { children: React.ReactNode 
         onClose={() => setOpen(false)}
         sx={{
           "& .MuiDrawer-paper": {
-            width: 220,
+            width: 250,
             backgroundColor: "#1976d2",
             color: "#fff",
           },
@@ -96,7 +110,7 @@ export default function InicialLayout({ children }: { children: React.ReactNode 
           {/* 🔹 Primeiro item: Home */}
           <ListItemButton
             selected={pathname === "/"}
-            onClick={() => goTo("/")}
+            onClick={() => goTo("/inicial_page/passaros")}
           >
             <ListItemIcon>
               <HomeIcon sx={{ color: "#fff" }} />
@@ -163,12 +177,52 @@ export default function InicialLayout({ children }: { children: React.ReactNode 
             </List>
           </Collapse>
 
+          {/* 🔹 Controle de Anilhas com submenu */}
+          <ListItemButton onClick={() => setOpenAnilhas(!openAnilhas)}>
+            <ListItemIcon>
+              <InventoryIcon sx={{ color: "#fff" }} />
+            </ListItemIcon>
+            <ListItemText primary="Controle de Anilhas" />
+            {openAnilhas ? <ExpandLess /> : <ExpandMore />}
+          </ListItemButton>
+
+          <Collapse in={openAnilhas} timeout="auto" unmountOnExit>
+            <List component="div" disablePadding>
+              <ListItemButton
+                sx={{ pl: 4 }}
+                selected={pathname === "/inicial_page/anilhas_pedidos"}
+                onClick={() => goTo("/inicial_page/anilhas_pedidos")}
+              >
+                <ListItemIcon><ShoppingCartIcon sx={{ color: "#fff", fontSize: 20 }} /></ListItemIcon>
+                <ListItemText primary="Pedidos (IBAMA)" />
+              </ListItemButton>
+
+              <ListItemButton
+                sx={{ pl: 4 }}
+                selected={pathname === "/inicial_page/anilhas_estoque"}
+                onClick={() => goTo("/inicial_page/anilhas_estoque")}
+              >
+                <ListItemIcon><InventoryIcon sx={{ color: "#fff", fontSize: 20 }} /></ListItemIcon>
+                <ListItemText primary="Estoque Disponível" />
+              </ListItemButton>
+
+              <ListItemButton
+                sx={{ pl: 4 }}
+                selected={pathname === "/inicial_page/anilhas_produtores"}
+                onClick={() => goTo("/inicial_page/anilhas_produtores")}
+              >
+                <ListItemIcon><SettingsIcon sx={{ color: "#fff", fontSize: 20 }} /></ListItemIcon>
+                <ListItemText primary="Produtores/Fábricas" />
+              </ListItemButton>
+            </List>
+          </Collapse>
+
           {/* 🔹 Logout */}
           <ListItemButton onClick={handleLogout}>
             <ListItemIcon>
               <LogoutIcon sx={{ color: "#fff" }} />
             </ListItemIcon>
-            <ListItemText primary="Sair" />
+            <ListItemText primary="Sair/Logout" />
           </ListItemButton>
         </List>
       </Drawer>
