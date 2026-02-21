@@ -1,236 +1,239 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter, useParams } from "next/navigation";
+import { useState, useEffect, useCallback } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
-import {
-  Box, Button, TextField, Typography, Paper, MenuItem, 
-  CircularProgress, IconButton, Avatar, Dialog, DialogTitle, 
-  DialogContent, DialogActions
-} from "@mui/material";
-
+import { formataDados } from "@/lib/formataDados";
 import { useEmpresa } from "@/context/empresaContext";
-import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import {
+  Box, Typography, Button, TextField, Paper, CircularProgress,
+  Container, Divider, FormControlLabel, Checkbox, MenuItem, Select, FormControl, InputLabel
+} from "@mui/material";
 import SaveIcon from "@mui/icons-material/Save";
-import CloudUploadIcon from "@mui/icons-material/CloudUpload";
-import DeleteIcon from "@mui/icons-material/Delete";
-import PictureAsPdfIcon from "@mui/icons-material/PictureAsPdf";
-import MusicNoteIcon from "@mui/icons-material/MusicNote";
-import PlayArrowIcon from "@mui/icons-material/PlayArrow";
-import AddIcon from "@mui/icons-material/Add";
+import HouseSidingIcon from "@mui/icons-material/HouseSiding";
+import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 
-export default function AlterarPassaroPage() {
+export default function CadastroCriadouro() {
   const router = useRouter();
-  const { id } = useParams();
+  const searchParams = useSearchParams();
+  const idCriadouro = searchParams.get("id"); // Se vier ID na URL, é edição
   const { empresaId } = useEmpresa();
-  
-  const [loading, setLoading] = useState(true);
-  const [salvando, setSalvando] = useState(false);
-  const [subindoArquivo, setSubindoArquivo] = useState(false);
-  const [midias, setMidias] = useState<any[]>([]);
 
-  // Estados do Modal de Mídia
-  const [modalMidiaAberto, setModalMidiaAberto] = useState(false);
-  const [arquivoSelecionado, setArquivoSelecionado] = useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [dadosMidia, setDadosMidia] = useState({
-    tipo: 'foto',
-    descricao: '',
-    local_registro: '',
-    autor_registro: '',
-    data_registro: new Date().toISOString().split('T')[0]
-  });
+  const [loading, setLoading] = useState(false);
+  const [continuar, setContinuar] = useState(!!idCriadouro);
 
-  const [formData, setFormData] = useState({
-    nome: "",
-    anilha: "",
-    sexo: "",
-    especie_id: "",
-    data_sexagem: "",
-    laboratorio_sexagem: "",
-    laudo_url: "",
-  });
+  // Estados dos Campos (Conforme sua Tabela)
+  const [tipoPessoa, setTipoPessoa] = useState<"PF" | "PJ" | "">("");
+  const [razaoSocial, setRazaoSocial] = useState("");
+  const [nomeFantasia, setNomeFantasia] = useState("");
+  const [documento, setDocumento] = useState("");
+  const [cep, setCep] = useState("");
+  const [endereco, setEndereco] = useState("");
+  const [cidade, setCidade] = useState("");
+  const [estado, setEstado] = useState("");
+  const [responsavelNome, setResponsavelNome] = useState("");
+  const [responsavelCpf, setResponsavelCpf] = useState("");
+  const [email, setEmail] = useState("");
+  const [telefone, setTelefone] = useState("");
+  const [eProprio, setEProprio] = useState(false);
 
-  useEffect(() => {
-    if (id) {
-        carregarDados();
-        carregarMidias();
-    }
-  }, [id]);
+  // Campos Novos (IBAMA/SISPASS)
+  const [ctfNumero, setCtfNumero] = useState("");
+  const [registroSispass, setRegistroSispass] = useState("");
+  const [categoriaCriador, setCategoriaCriador] = useState("Amador");
+  const [dataValidade, setDataValidade] = useState("");
+  const [capacidadeAves, setCapacidadeAves] = useState(0);
 
-  const carregarDados = async () => {
-    const { data } = await supabase.from("passaros").select("*").eq("id", id).single();
+  // 🔹 Carregar dados se for Edição
+  const carregarCriadouro = useCallback(async () => {
+    if (!idCriadouro) return;
+    setLoading(true);
+    const { data, error } = await supabase.from("criadouros").select("*").eq("id", idCriadouro).single();
     if (data) {
-        setFormData(data);
-        setLoading(false);
+      setTipoPessoa(data.tipo_pessoa?.trim() as any);
+      setRazaoSocial(data.razao_social || "");
+      setNomeFantasia(data.nome_fantasia || "");
+      setDocumento(formataDados(data.documento || "", data.tipo_pessoa?.trim() === "PF" ? "cpf" : "cnpj"));
+      setCep(formataDados(data.cep || "", "cep"));
+      setEndereco(data.endereco || "");
+      setCidade(data.cidade || "");
+      setEstado(data.estado || "");
+      setResponsavelNome(data.responsavel_nome || "");
+      setResponsavelCpf(formataDados(data.responsavel_cpf || "", "cpf"));
+      setEmail(data.email || "");
+      setTelefone(formataDados(data.telefone || "", "celular"));
+      setEProprio(data.e_proprio);
+      setCtfNumero(data.ctf_numero || "");
+      setRegistroSispass(data.registro_sispass || "");
+      setCategoriaCriador(data.categoria_criador || "Amador");
+      setDataValidade(data.data_validade_licenca || "");
+      setCapacidadeAves(data.capacidade_maxima_aves || 0);
+      setContinuar(true);
+    }
+    setLoading(false);
+  }, [idCriadouro]);
+
+  useEffect(() => { carregarCriadouro(); }, [carregarCriadouro]);
+
+  // 🔹 Busca de CEP
+  const handleCepChange = async (v: string) => {
+    const limpo = v.replace(/\D/g, "");
+    setCep(formataDados(limpo, "cep"));
+    if (limpo.length === 8) {
+      const res = await fetch(`https://viacep.com.br/ws/${limpo}/json/`);
+      const d = await res.json();
+      if (!d.erro) {
+        setEndereco(d.logradouro || "");
+        setCidade(d.localidade || "");
+        setEstado(d.uf || "");
+      }
     }
   };
 
-  const carregarMidias = async () => {
-    const { data } = await supabase.from("passaros_midia").select("*").eq("passaro_id", id).order('created_at', { ascending: false });
-    if (data) setMidias(data);
-  };
+  const handleSalvar = async () => {
+    if (!empresaId) return alert("Erro de contexto: Empresa não identificada.");
+    setLoading(true);
 
-  // --- LÓGICA DE UPLOAD DA MÍDIA (MODAL) ---
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setArquivoSelecionado(file);
-      setPreviewUrl(URL.createObjectURL(file));
+    const payload = {
+      tipo_pessoa: tipoPessoa,
+      razao_social: razaoSocial,
+      nome_fantasia: nomeFantasia || razaoSocial,
+      documento: documento.replace(/\D/g, ""),
+      cep: cep.replace(/\D/g, ""),
+      endereco, cidade, estado,
+      responsavel_nome: responsavelNome,
+      responsavel_cpf: responsavelCpf.replace(/\D/g, ""),
+      email, telefone, e_proprio: eProprio,
+      empresa_uuid: empresaId,
+      ctf_numero: ctfNumero,
+      registro_sispass: registroSispass,
+      categoria_criador: categoriaCriador,
+      data_validade_licenca: dataValidade || null,
+      capacidade_maxima_aves: capacidadeAves
+    };
+
+    const { error } = idCriadouro 
+      ? await supabase.from("criadouros").update(payload).eq("id", idCriadouro)
+      : await supabase.from("criadouros").insert([payload]);
+
+    if (error) alert("Erro: " + error.message);
+    else {
+      alert("Criadouro salvo com sucesso!");
+      router.push("/inicial_page/criadouros");
     }
+    setLoading(false);
   };
-
-  const handleSalvarMidia = async () => {
-    if (!arquivoSelecionado || !empresaId) return;
-    setSubindoArquivo(true);
-
-    try {
-      const fileExt = arquivoSelecionado.name.split('.').pop();
-      const fileName = `${Date.now()}.${fileExt}`;
-      const filePath = `${empresaId}/midias/${fileName}`;
-
-      const { error: uploadError } = await supabase.storage.from('laudos').upload(filePath, arquivoSelecionado);
-      if (uploadError) throw uploadError;
-
-      const { data: urlData } = supabase.storage.from('laudos').getPublicUrl(filePath);
-
-      const { error: dbError } = await supabase.from("passaros_midia").insert([{
-        passaro_id: id,
-        empresa_id: empresaId,
-        url: urlData.publicUrl,
-        ...dadosMidia
-      }]);
-
-      if (dbError) throw dbError;
-
-      setModalMidiaAberto(false);
-      setArquivoSelecionado(null);
-      setPreviewUrl(null);
-      carregarMidias();
-    } catch (error) {
-      alert("Erro ao salvar mídia");
-    } finally {
-      setSubindoArquivo(false);
-    }
-  };
-
-  const deletarMidia = async (midiaId: number) => {
-    if (!confirm("Excluir esta mídia permanentemente?")) return;
-    await supabase.from("passaros_midia").delete().eq("id", midiaId);
-    carregarMidias();
-  };
-
-  const handleSalvarPassaro = async () => {
-    setSalvando(true);
-    await supabase.from("passaros").update(formData).eq("id", id);
-    router.push("/inicial_page/passaros");
-  };
-
-  if (loading) return <Box sx={{ p: 4, textAlign: 'center' }}><CircularProgress /></Box>;
 
   return (
-    <Box sx={{ p: { xs: 2, md: 4 } }}>
-      <Box sx={{ mb: 4, display: 'flex', alignItems: 'center', gap: 2 }}>
-        <IconButton onClick={() => router.back()}><ArrowBackIcon /></IconButton>
-        <Typography variant="h4" sx={{ color: "#0D47A1", fontWeight: "800" }}>Ficha do Pássaro</Typography>
-      </Box>
-
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '1fr 350px' }, gap: 4, alignItems: 'start' }}>
+    <Container maxWidth="lg" sx={{ py: 2 }}>
+      <Paper elevation={3} sx={{ p: 4, borderRadius: 2 }}>
         
-        {/* COLUNA PRINCIPAL: DADOS E GALERIA */}
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <Paper variant="outlined" sx={{ p: 3, borderRadius: 2 }}>
-            <Typography variant="h6" sx={{ mb: 3, fontWeight: 'bold' }}>Dados Cadastrais</Typography>
-            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(12, 1fr)' }, gap: 3 }}>
-              <Box sx={{ gridColumn: 'span 6' }}><TextField label="Nome" fullWidth value={formData.nome} onChange={(e) => setFormData({...formData, nome: e.target.value})} /></Box>
-              <Box sx={{ gridColumn: 'span 3' }}><TextField label="Anilha" fullWidth value={formData.anilha} onChange={(e) => setFormData({...formData, anilha: e.target.value})} /></Box>
-              <Box sx={{ gridColumn: 'span 3' }}>
-                <TextField select label="Sexo" fullWidth value={formData.sexo} onChange={(e) => setFormData({...formData, sexo: e.target.value})}>
-                  <MenuItem value="M">Macho</MenuItem><MenuItem value="F">Fêmea</MenuItem>
-                </TextField>
-              </Box>
-            </Box>
-          </Paper>
-
-          {/* GALERIA DE MÍDIAS */}
-          <Paper variant="outlined" sx={{ p: 3, borderRadius: 2 }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-              <Typography variant="h6" sx={{ fontWeight: 'bold' }}>Histórico de Fotos e Cantos</Typography>
-              <Button variant="contained" startIcon={<AddIcon />} onClick={() => setModalMidiaAberto(true)}>Adicionar Mídia</Button>
-            </Box>
-
-            <Box sx={{ display: 'grid', gridTemplateColumns: '1fr', gap: 2 }}>
-              {midias.map((m) => (
-                <Paper key={m.id} sx={{ p: 2, display: 'flex', gap: 2, alignItems: 'center', bgcolor: '#fcfcfc' }}>
-                  <Avatar variant="rounded" src={m.tipo === 'foto' ? m.url : ''} sx={{ width: 60, height: 60, bgcolor: '#e3f2fd' }}>
-                    {m.tipo === 'audio' ? <MusicNoteIcon color="primary" /> : <PlayArrowIcon />}
-                  </Avatar>
-                  <Box sx={{ flexGrow: 1 }}>
-                    <Typography variant="body2" sx={{ fontWeight: 'bold' }}>{m.descricao || 'Sem descrição'}</Typography>
-                    <Typography variant="caption" sx={{ display: 'block', color: '#666' }}>
-                      📅 {new Date(m.data_registro).toLocaleDateString()} | 📍 {m.local_registro || 'Local não informado'}
-                    </Typography>
-                  </Box>
-                  <IconButton color="error" onClick={() => deletarMidia(m.id)}><DeleteIcon /></IconButton>
-                </Paper>
-              ))}
-              {midias.length === 0 && <Typography variant="body2" sx={{ color: '#999', textAlign: 'center', py: 4 }}>Nenhuma mídia registrada.</Typography>}
-            </Box>
-          </Paper>
+        <Box sx={{ display: 'flex', alignItems: 'center', mb: 4, justifyContent: 'space-between' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <HouseSidingIcon color="primary" sx={{ fontSize: 30 }} />
+            <Typography variant="h5" fontWeight="bold" color="primary">
+              {idCriadouro ? "Editar Criadouro" : "Novo Criadouro"}
+            </Typography>
+          </Box>
+          <Button startIcon={<ArrowBackIcon />} onClick={() => router.back()}>Voltar</Button>
         </Box>
 
-        {/* COLUNA LATERAL: LAUDO DE SEXAGEM */}
-        <Paper variant="outlined" sx={{ p: 3, borderRadius: 2, position: 'sticky', top: 20 }}>
-          <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 2 }}>Certificado de Sexagem</Typography>
-          <Box sx={{ border: '2px dashed #ccc', borderRadius: 2, p: 2, textAlign: 'center', bgcolor: '#f9f9f9' }}>
-            {formData.laudo_url ? (
-               <Box>
-                 {formData.laudo_url.toLowerCase().endsWith('.pdf') ? <PictureAsPdfIcon sx={{ fontSize: 60, color: '#c62828' }} /> : <img src={formData.laudo_url} style={{ width: '100%', borderRadius: 8 }} />}
-                 <Button color="error" size="small" onClick={() => setFormData({...formData, laudo_url: ""})} sx={{ mt: 1 }}>Remover</Button>
-               </Box>
-            ) : (
-               <Typography variant="caption" sx={{ color: '#999' }}>Nenhum laudo anexado</Typography>
-            )}
+        {/* ETAPA 1: TIPO DE PESSOA */}
+        {!continuar && (
+          <Box sx={{ textAlign: 'center', py: 5 }}>
+            <Typography variant="h6" sx={{ mb: 3 }}>Selecione o tipo de registro:</Typography>
+            <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center' }}>
+              <Button variant={tipoPessoa === "PF" ? "contained" : "outlined"} onClick={() => setTipoPessoa("PF")}>Pessoa Física</Button>
+              <Button variant={tipoPessoa === "PJ" ? "contained" : "outlined"} onClick={() => setTipoPessoa("PJ")}>Pessoa Jurídica</Button>
+            </Box>
+            <Button variant="contained" sx={{ mt: 5, px: 8 }} disabled={!tipoPessoa} onClick={() => setContinuar(true)}>Continuar</Button>
           </Box>
-          <Button variant="contained" fullWidth sx={{ mt: 4, height: 50 }} onClick={handleSalvarPassaro} startIcon={<SaveIcon />}>Salvar Tudo</Button>
-        </Paper>
-      </Box>
+        )}
 
-      {/* MODAL DE DUAS COLUNAS (O SEU PEDIDO) */}
-      <Dialog open={modalMidiaAberto} onClose={() => setModalMidiaAberto(false)} maxWidth="md" fullWidth>
-        <DialogTitle>Novo Registro de Mídia</DialogTitle>
-        <DialogContent dividers>
-          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1.2fr 1fr' }, gap: 4 }}>
-            {/* LADO ESQUERDO: METADADOS */}
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                <TextField select label="Tipo" fullWidth value={dadosMidia.tipo} onChange={(e) => setDadosMidia({...dadosMidia, tipo: e.target.value})}>
-                    <MenuItem value="foto">Imagem</MenuItem><MenuItem value="audio">Áudio/Canto</MenuItem>
-                </TextField>
-                <TextField label="Descrição" fullWidth value={dadosMidia.descricao} onChange={(e) => setDadosMidia({...dadosMidia, descricao: e.target.value})} />
-                <TextField label="Local" fullWidth value={dadosMidia.local_registro} onChange={(e) => setDadosMidia({...dadosMidia, local_registro: e.target.value})} />
-                <TextField label="Autor" fullWidth value={dadosMidia.autor_registro} onChange={(e) => setDadosMidia({...dadosMidia, autor_registro: e.target.value})} />
-                <TextField label="Data" type="date" fullWidth InputLabelProps={{ shrink: true }} value={dadosMidia.data_registro} onChange={(e) => setDadosMidia({...dadosMidia, data_registro: e.target.value})} />
+        {/* ETAPA 2: FORMULÁRIO COMPLETO */}
+        {continuar && (
+          <Box>
+            {/* 1ª LINHA: NOME E DOCUMENTO */}
+            <Box sx={{ display: 'flex', gap: 2, mb: 3, flexDirection: { xs: 'column', sm: 'row' } }}>
+              <TextField
+                label={tipoPessoa === "PF" ? "Nome Completo" : "Razão Social"}
+                sx={{ flex: 3 }}
+                value={razaoSocial}
+                onChange={(e) => setRazaoSocial(e.target.value)}
+                InputProps={{ style: { fontSize: '1.1rem', fontWeight: '600' } }}
+              />
+              <TextField
+                label={tipoPessoa === "PF" ? "CPF" : "CNPJ"}
+                sx={{ flex: 1, minWidth: '200px' }}
+                value={documento}
+                onChange={(e) => {
+                  const v = e.target.value.replace(/\D/g, "");
+                  setDocumento(formataDados(v, tipoPessoa === "PF" ? "cpf" : "cnpj"));
+                }}
+              />
             </Box>
-            {/* LADO DIREITO: PREVIEW */}
-            <Box sx={{ border: '1px solid #ddd', borderRadius: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: '#fafafa', minHeight: 250 }}>
-                {previewUrl ? (
-                    <Box sx={{ width: '100%', p: 1, textAlign: 'center' }}>
-                        {dadosMidia.tipo === 'foto' ? <img src={previewUrl} style={{ maxWidth: '100%', maxHeight: 200 }} /> : <audio controls src={previewUrl} style={{ width: '100%' }} />}
-                        <Button color="error" size="small" onClick={() => setPreviewUrl(null)}>Trocar Arquivo</Button>
-                    </Box>
-                ) : (
-                    <Button variant="outlined" component="label">Escolher Arquivo<input type="file" hidden onChange={handleFileSelect} /></Button>
-                )}
+
+            {/* 2ª LINHA: NOME FANTASIA (SE PJ) */}
+            {tipoPessoa === "PJ" && (
+              <Box sx={{ display: 'flex', mb: 3 }}>
+                <TextField label="Nome Fantasia" fullWidth value={nomeFantasia} onChange={(e) => setNomeFantasia(e.target.value)} />
+              </Box>
+            )}
+
+            {/* 3ª LINHA: CEP, ENDEREÇO, CIDADE, UF */}
+            <Box sx={{ display: 'flex', gap: 2, mb: 3, flexDirection: { xs: 'column', sm: 'row' } }}>
+              <TextField label="CEP" sx={{ width: '150px' }} value={cep} onChange={(e) => handleCepChange(e.target.value)} />
+              <TextField label="Endereço" sx={{ flex: 1 }} value={endereco} onChange={(e) => setEndereco(e.target.value)} />
+              <TextField label="Cidade" sx={{ flex: 1 }} value={cidade} onChange={(e) => setCidade(e.target.value)} />
+              <TextField label="UF" sx={{ width: '80px' }} value={estado} onChange={(e) => setEstado(e.target.value.toUpperCase())} inputProps={{ maxLength: 2 }} />
+            </Box>
+
+            <Divider sx={{ my: 3 }}>Dados do Responsável e Contato</Divider>
+
+            {/* 4ª LINHA: RESPONSÁVEL */}
+            <Box sx={{ display: 'flex', gap: 2, mb: 3, flexDirection: { xs: 'column', sm: 'row' } }}>
+              <TextField label="Nome do Responsável" sx={{ flex: 2 }} value={responsavelNome} onChange={(e) => setResponsavelNome(e.target.value)} />
+              <TextField label="CPF Responsável" sx={{ flex: 1 }} value={responsavelCpf} onChange={(e) => setResponsavelCpf(formataDados(e.target.value, "cpf"))} />
+            </Box>
+
+            {/* 5ª LINHA: CONTATO */}
+            <Box sx={{ display: 'flex', gap: 2, mb: 3, flexDirection: { xs: 'column', sm: 'row' } }}>
+              <TextField label="E-mail" sx={{ flex: 2 }} value={email} onChange={(e) => setEmail(e.target.value)} />
+              <TextField label="Telefone" sx={{ flex: 1 }} value={telefone} onChange={(e) => setTelefone(formataDados(e.target.value, "celular"))} />
+              <FormControlLabel control={<Checkbox checked={eProprio} onChange={(e) => setEProprio(e.target.checked)} />} label="É próprio" sx={{ ml: 1 }} />
+            </Box>
+
+            <Divider sx={{ my: 3 }}>Registros Ambientais (IBAMA / SISPASS)</Divider>
+
+            {/* 6ª LINHA: REGISTROS TÉCNICOS */}
+            <Box sx={{ display: 'flex', gap: 2, mb: 3, flexDirection: { xs: 'column', sm: 'row' } }}>
+              <TextField label="CTF (IBAMA)" sx={{ flex: 1 }} value={ctfNumero} onChange={(e) => setCtfNumero(e.target.value)} />
+              <TextField label="Registro SISPASS" sx={{ flex: 1 }} value={registroSispass} onChange={(e) => setRegistroSispass(e.target.value)} />
+              <FormControl sx={{ flex: 1 }}>
+                <InputLabel>Categoria</InputLabel>
+                <Select value={categoriaCriador} label="Categoria" onChange={(e) => setCategoriaCriador(e.target.value)}>
+                  <MenuItem value="Amador">Amador</MenuItem>
+                  <MenuItem value="Comercial">Comercial</MenuItem>
+                </Select>
+              </FormControl>
+            </Box>
+
+            {/* 7ª LINHA: VALIDADE E CAPACIDADE */}
+            <Box sx={{ display: 'flex', gap: 2, mb: 3, flexDirection: { xs: 'column', sm: 'row' } }}>
+              <TextField label="Vencimento Licença" type="date" sx={{ flex: 1 }} InputLabelProps={{ shrink: true }} value={dataValidade} onChange={(e) => setDataValidade(e.target.value)} />
+              <TextField label="Capacidade de Aves" type="number" sx={{ flex: 1 }} value={capacidadeAves} onChange={(e) => setCapacidadeAves(Number(e.target.value))} />
+              <Box sx={{ flex: 1 }} /> {/* Espaçador */}
+            </Box>
+
+            <Box sx={{ mt: 5, display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
+              <Button variant="outlined" onClick={() => router.back()}>Cancelar</Button>
+              <Button variant="contained" size="large" startIcon={<SaveIcon />} onClick={handleSalvar} disabled={loading} sx={{ px: 6 }}>
+                {loading ? "Processando..." : "Salvar Criadouro"}
+              </Button>
             </Box>
           </Box>
-        </DialogContent>
-        <DialogActions sx={{ p: 2 }}>
-          <Button onClick={() => setModalMidiaAberto(false)}>Cancelar</Button>
-          <Button variant="contained" onClick={handleSalvarMidia} disabled={subindoArquivo || !arquivoSelecionado}>
-            {subindoArquivo ? <CircularProgress size={24} /> : "Salvar Mídia"}
-          </Button>
-        </DialogActions>
-      </Dialog>
-    </Box>
+        )}
+      </Paper>
+    </Container>
   );
 }

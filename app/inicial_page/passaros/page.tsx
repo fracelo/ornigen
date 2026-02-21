@@ -1,279 +1,274 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, Suspense, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import {
   Box, Button, TextField, Table, TableHead, TableRow, TableCell,
-  TableBody, Typography, Paper, Chip, Checkbox, IconButton, CircularProgress, Portal, TableContainer
+  TableBody, Typography, Paper, Chip, Checkbox, IconButton, CircularProgress, 
+  TableContainer, Avatar, MenuItem, Select, FormControl, InputLabel, Container
 } from "@mui/material";
 import { useEmpresa } from "@/context/empresaContext";
+
+
+// Ícones - Versão correta para MUI 5
 import AddIcon from "@mui/icons-material/Add";
 import BadgeIcon from "@mui/icons-material/Badge";
 import EditIcon from "@mui/icons-material/Edit";
 import SearchIcon from "@mui/icons-material/Search";
-import PrintIcon from "@mui/icons-material/Print";
-
-// 🔹 Certifique-se de que o caminho do seu componente CrachaPassaro está correto
-import CrachaPassaro from "@/components/CrachaPassaro";
+import ScienceIcon from "@mui/icons-material/Science";
+import StarIcon from "@mui/icons-material/Star";
 
 function ListaPassarosContent() {
   const [busca, setBusca] = useState("");
+  const [filtroStatus, setFiltroStatus] = useState("Ativo");
   const [registros, setRegistros] = useState<any[]>([]);
   const [selecionados, setSelecionados] = useState<number[]>([]);
   const [loading, setLoading] = useState(true);
-  
-  const [mostrarModal, setMostrarModal] = useState(false);
-  const [dadosParaImprimir, setDadosParaImprimir] = useState<any[][]>([]);
-  const [preparando, setPreparando] = useState(false);
 
   const router = useRouter();
   const { empresaId } = useEmpresa();
 
-  useEffect(() => {
-    if (empresaId) carregarRegistros();
-  }, [empresaId]);
-
-  const carregarRegistros = async () => {
+  const carregarRegistros = useCallback(async () => {
+    if (!empresaId) return;
     setLoading(true);
     try {
-      const { data: passaros } = await supabase
+      // 1. Busca os pássaros
+      const { data: passaros, error: errP } = await supabase
         .from("passaros")
-        .select(`id, nome, anilha, sexo, especie_id, pai_id, mae_id, especies_sispass:especie_id (nomes_comuns)`)
+        .select(`id, nome, anilha, sexo, laudo_url, status, especie_id, pai_id, mae_id, especies_sispass:especie_id (nomes_comuns)`)
         .eq("empresa_id", empresaId)
         .order("nome", { ascending: true });
 
-      const { data: todos } = await supabase.from("passaros").select("id, nome").eq("empresa_id", empresaId);
-      const mapaNomes: Record<number, string> = {};
-      todos?.forEach((p) => { mapaNomes[p.id] = p.nome; });
+      if (errP) throw errP;
 
+      // 2. Busca fotos (priorizando a marcada como principal/estrela)
+      const { data: fotos } = await supabase
+        .from("passaros_midia")
+        .select("passaro_id, url, principal")
+        .eq("empresa_id", empresaId)
+        .eq("tipo", "foto")
+        .order("principal", { ascending: false });
+
+      const mapaFotos: Record<number, { url: string; principal: boolean }> = {};
+      fotos?.forEach(f => { 
+        if (!mapaFotos[f.passaro_id]) {
+          mapaFotos[f.passaro_id] = { url: f.url, principal: f.principal || false };
+        }
+      });
+
+      // 3. Formatação para a lista
       setRegistros(passaros?.map((p: any) => ({
         ...p,
+        foto_url: mapaFotos[p.id]?.url || null,
+        tem_estrela: mapaFotos[p.id]?.principal || false,
         especie_nome: p.especies_sispass?.nomes_comuns?.[0] || "Não informada",
-        pai_nome: p.pai_id ? mapaNomes[p.pai_id] : null,
-        mae_nome: p.mae_id ? mapaNomes[p.mae_id] : null,
+        status: p.status || "Ativo"
       })) || []);
-    } catch (err) {
-      console.error("Erro ao carregar registros:", err);
-    } finally {
-      setLoading(false);
+
+    } catch (err) { 
+      console.error("Erro ao carregar lista:", err); 
+    } finally { 
+      setLoading(false); 
     }
-  };
+  }, [empresaId]);
 
-  const prepararImpressao = async () => {
-    if (selecionados.length === 0) return;
-    setPreparando(true);
-    
-    try {
-      const { data, error } = await supabase
-        .from("passaros")
-        .select(`*, especies_sispass:especie_id(nomes_comuns), criadouros:origem_id(nome_fantasia, razao_social)`)
-        .in("id", selecionados);
+  useEffect(() => { carregarRegistros(); }, [carregarRegistros]);
 
-      if (error) throw error;
-
-      const formatados = data.map(p => ({
-        ...p,
-        especie_nome: p.especies_sispass?.nomes_comuns?.[0] || "Não informada",
-        origem_nome: p.criadouros?.nome_fantasia || p.criadouros?.razao_social || "Própria"
-      }));
-
-      const paginas = [];
-      for (let i = 0; i < formatados.length; i += 8) {
-        paginas.push(formatados.slice(i, i + 8));
-      }
-
-      setDadosParaImprimir(paginas);
-      setMostrarModal(true);
-      
-      // Dá tempo para o navegador processar os crachás invisíveis
-      setTimeout(() => {
-        setPreparando(false);
-      }, 2000);
-
-    } catch (err) {
-      console.error(err);
-      setPreparando(false);
-    }
-  };
+  const registrosFiltrados = registros.filter(r => {
+    const matchesBusca = r.nome?.toLowerCase().includes(busca.toLowerCase()) || r.anilha?.toLowerCase().includes(busca.toLowerCase());
+    const matchesStatus = filtroStatus === "Todos" ? true : r.status === filtroStatus;
+    return matchesBusca && matchesStatus;
+  });
 
   return (
-    <Box sx={{ p: { xs: 2, md: 4 } }}>
-      <Typography variant="h4" sx={{ mb: 4, color: "#0D47A1", fontWeight: "800" }}>
-        Plantel de Pássaros
-      </Typography>
+    <Container maxWidth="lg" sx={{ py: { xs: 2, md: 3 } }}>
+      {/* HEADER OPERACIONAL */}
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+        <Typography variant="h5" sx={{ color: "#0D47A1", fontWeight: "900", letterSpacing: '-0.5px' }}>
+          PLANTEL
+        </Typography>
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          <Button variant="outlined" size="small" disabled={selecionados.length === 0} startIcon={<BadgeIcon />}>
+            Imprimir Crachás
+          </Button>
+          <Button 
+            variant="contained" 
+            size="small" 
+            startIcon={<AddIcon />} 
+            onClick={() => router.push("/inicial_page/passaros/novo")} // 🔹 Envia "novo" como ID
+          >
+            Novo Pássaro
+          </Button>
+        </Box>
+      </Box>
 
-      <Paper elevation={0} variant="outlined" sx={{ p: 2, mb: 3, display: 'flex', gap: 2, alignItems: 'center', borderRadius: 2 }}>
+      {/* FILTROS COMPACTOS (Ideal para 1366px) */}
+      <Paper variant="outlined" sx={{ p: 1.5, mb: 2, borderRadius: 2, display: 'flex', gap: 2, bgcolor: '#fbfcfe' }}>
         <TextField 
-          size="small" 
-          placeholder="Buscar..." 
+          placeholder="Buscar por nome ou anilha..." 
           value={busca} 
           onChange={(e) => setBusca(e.target.value)} 
           sx={{ flexGrow: 1 }} 
+          size="small" 
+          InputProps={{ startAdornment: <SearchIcon sx={{ color: 'gray', mr: 1, fontSize: 20 }} /> }} 
         />
-        <Button variant="contained" startIcon={<AddIcon />} onClick={() => router.push("/inicial_page/passaros/novo")}>
-          Novo Pássaro
-        </Button>
-        <Button 
-          variant="outlined" 
-          color="secondary" 
-          disabled={selecionados.length === 0 || preparando}
-          onClick={prepararImpressao}
-          startIcon={preparando ? <CircularProgress size={20} /> : <BadgeIcon />}
-        >
-          Gerar Crachás ({selecionados.length})
-        </Button>
+        <FormControl size="small" sx={{ minWidth: 160 }}>
+          <InputLabel>Filtrar Status</InputLabel>
+          <Select value={filtroStatus} label="Filtrar Status" onChange={(e) => setFiltroStatus(e.target.value)}>
+            <MenuItem value="Ativo">Ativos</MenuItem>
+            <MenuItem value="Morto">Mortos</MenuItem>
+            <MenuItem value="Fuga">Fugas</MenuItem>
+            <MenuItem value="Transferido">Transferidos</MenuItem>
+            <MenuItem value="Todos">Todos os Registros</MenuItem>
+          </Select>
+        </FormControl>
       </Paper>
 
-      <TableContainerComponent 
-        loading={loading} 
-        registros={registros.filter(r => r.nome?.toLowerCase().includes(busca.toLowerCase()))} 
-        selecionados={selecionados} 
-        setSelecionados={setSelecionados} 
-        router={router}
-      />
-
-      {mostrarModal && (
-        <Portal>
-          <Box id="modal-print-root" sx={{
-            position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
-            bgcolor: '#525659', zIndex: 99999, overflowY: 'auto',
-            "@media print": { position: 'static', bgcolor: 'white', overflow: 'visible' }
-          }}>
-            
-            {preparando && (
-              <Box sx={{
-                position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
-                bgcolor: 'white', p: 4, borderRadius: 2, textAlign: 'center', boxShadow: 24, zIndex: 100,
-                "@media print": { display: 'none' }
-              }}>
-                <CircularProgress sx={{ mb: 2 }} />
-                <Typography variant="h6">Renderizando Crachás...</Typography>
-                <Typography variant="body2">Aguarde a geração das páginas do PDF.</Typography>
-              </Box>
-            )}
-
-            <Box sx={{ 
-              display: preparando ? 'none' : 'flex', 
-              justifyContent: 'center', 
-              gap: 2, 
-              p: 2, 
-              position: 'sticky', 
-              top: 0, 
-              bgcolor: '#323639', 
-              zIndex: 10,
-              "@media print": { display: 'none' } 
-            }}>
-              <Button variant="contained" color="success" startIcon={<PrintIcon />} onClick={() => window.print()} sx={{ fontWeight: 'bold' }}>
-                IMPRIMIR TUDO
-              </Button>
-              <Button variant="contained" color="error" onClick={() => setMostrarModal(false)}>
-                FECHAR
-              </Button>
-            </Box>
-
-            <div className="print-area" style={{ visibility: preparando ? 'hidden' : 'visible' }}>
-                {dadosParaImprimir.map((pagina, idx) => (
-                <div key={idx} className="page-break-container">
-                    <Box sx={{
-                        width: '210mm', height: '290mm', bgcolor: 'white', margin: '40px auto',
-                        padding: '15mm 5mm', display: 'grid', gridTemplateColumns: '100mm 100mm',
-                        gridAutoRows: '60mm', gap: '8mm 2mm', justifyContent: 'center',
-                        boxSizing: 'border-box', boxShadow: '0 0 15px rgba(0,0,0,0.5)',
-                        "@media print": { margin: 0, boxShadow: 'none', display: 'grid !important' }
-                    }}>
-                        {pagina.map((p: any) => (
-                        <Box key={p.id} sx={{
-                            width: '100mm', height: '60mm', border: '1px dashed #ccc',
-                            display: 'flex', justifyContent: 'center', alignItems: 'center',
-                            "@media print": { border: '0.1mm solid #eee' }
-                        }}>
-                            <Box sx={{ transform: 'scale(0.95)', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
-                                <CrachaPassaro form={p} />
-                            </Box>
-                        </Box>
-                        ))}
-                    </Box>
-                </div>
-                ))}
-            </div>
-
-            <style jsx global>{`
-              @media print {
-                body > *:not(#modal-print-root) { display: none !important; }
-                #modal-print-root { width: 100% !important; }
-                .page-break-container { 
-                  display: block !important; 
-                  page-break-after: always !important; 
-                  break-after: always !important;
-                  contain: none !important;
-                }
-                html, body { height: auto !important; overflow: visible !important; margin: 0 !important; padding: 0 !important; }
-                @page { size: A4 portrait; margin: 0 !important; }
-                * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-              }
-            `}</style>
-          </Box>
-        </Portal>
-      )}
-    </Box>
-  );
-}
-
-function TableContainerComponent({ loading, registros, selecionados, setSelecionados, router }: any) {
-  const handleSelect = (id: number) => setSelecionados((prev: any) => prev.includes(id) ? prev.filter((i: any) => i !== id) : [...prev, id]);
-  return (
-    <TableContainer component={Paper} variant="outlined">
-      <Table>
-        <TableHead sx={{ bgcolor: "#f1f3f4" }}>
-          <TableRow>
-            <TableCell padding="checkbox">
-              <Checkbox 
-                checked={registros.length > 0 && selecionados.length === registros.length} 
-                onChange={(e) => setSelecionados(e.target.checked ? registros.map((r: any) => r.id) : [])} 
-              />
-            </TableCell>
-            <TableCell sx={{ fontWeight: "bold" }}>Identificação</TableCell>
-            <TableCell sx={{ fontWeight: "bold" }}>Anilha</TableCell>
-            <TableCell sx={{ fontWeight: "bold" }}>Genealogia</TableCell>
-            <TableCell sx={{ fontWeight: "bold" }}>Sexo</TableCell>
-            <TableCell align="right" sx={{ fontWeight: "bold" }}>Ações</TableCell>
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {loading ? (
-            <TableRow><TableCell colSpan={6} align="center" sx={{ py: 8 }}><CircularProgress /></TableCell></TableRow>
-          ) : registros.map((r: any) => (
-            <TableRow key={r.id} hover>
-              <TableCell padding="checkbox">
-                <Checkbox checked={selecionados.includes(r.id)} onChange={() => handleSelect(r.id)} />
+      {/* TABELA DE GESTÃO */}
+      <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 2, maxHeight: 'calc(100vh - 220px)' }}>
+        <Table size="small" stickyHeader>
+          <TableHead>
+            <TableRow>
+              <TableCell padding="checkbox" sx={{ bgcolor: "#f8f9fa" }}>
+                <Checkbox 
+                  size="small" 
+                  onChange={(e) => setSelecionados(e.target.checked ? registrosFiltrados.map(r => r.id) : [])} 
+                />
               </TableCell>
-              <TableCell>
-                <Typography variant="body1" sx={{ fontWeight: 700 }}>{r.nome}</Typography>
-                <Typography variant="caption" color="textSecondary">{r.especie_nome}</Typography>
-              </TableCell>
-              <TableCell><Chip label={r.anilha} size="small" variant="outlined" /></TableCell>
-              <TableCell>
-                <Typography variant="caption" sx={{ color: "#1976d2", display: 'block', fontWeight: 'bold' }}>♂ {r.pai_nome || "-"}</Typography>
-                <Typography variant="caption" sx={{ color: "#d81b60", display: 'block', fontWeight: 'bold' }}>♀ {r.mae_nome || "-"}</Typography>
-              </TableCell>
-              <TableCell>
-                <Chip label={r.sexo === 'M' ? 'Macho' : 'Fêmea'} size="small" color={r.sexo === 'M' ? 'primary' : 'secondary'} />
-              </TableCell>
-              <TableCell align="right">
-                <IconButton onClick={() => router.push(`/inicial_page/passaros/${r.id}`)} color="primary"><EditIcon /></IconButton>
-              </TableCell>
+              <TableCell sx={{ fontWeight: "bold", bgcolor: "#f8f9fa" }}>Ave</TableCell>
+              <TableCell sx={{ fontWeight: "bold", bgcolor: "#f8f9fa" }}>Identificação</TableCell>
+              <TableCell sx={{ fontWeight: "bold", bgcolor: "#f8f9fa" }}>Situação</TableCell>
+              <TableCell align="right" sx={{ fontWeight: "bold", bgcolor: "#f8f9fa" }}>Ações</TableCell>
             </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </TableContainer>
+          </TableHead>
+          <TableBody>
+            {loading ? (
+              <TableRow><TableCell colSpan={5} align="center" sx={{ py: 5 }}><CircularProgress size={24} /></TableCell></TableRow>
+            ) : registrosFiltrados.length === 0 ? (
+              <TableRow><TableCell colSpan={5} align="center" sx={{ py: 5 }}>Nenhum pássaro encontrado.</TableCell></TableRow>
+            ) : registrosFiltrados.map((r) => {
+              const inativo = r.status !== "Ativo";
+              const isMacho = r.sexo === 'M';
+
+              return (
+                <TableRow key={r.id} hover sx={{ opacity: inativo ? 0.7 : 1 }}>
+                  <TableCell padding="checkbox">
+                    <Checkbox 
+                      size="small" 
+                      checked={selecionados.includes(r.id)} 
+                      onChange={() => setSelecionados(prev => prev.includes(r.id) ? prev.filter(i => i !== r.id) : [...prev, r.id])} 
+                    />
+                  </TableCell>
+
+                  {/* COLUNA AVE: FOTO (ESTRELA) + NOME */}
+                  <TableCell>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                      <Box sx={{ position: 'relative' }}>
+                        <Avatar 
+                          src={r.foto_url} 
+                          variant="rounded" 
+                          sx={{ 
+                            width: 42, 
+                            height: 42, 
+                            border: r.tem_estrela ? '2px solid #ffb300' : '1px solid #eee',
+                            bgcolor: '#f0f0f0'
+                          }}
+                        >
+                          🐦
+                        </Avatar>
+                        {r.tem_estrela && (
+                          <StarIcon sx={{ 
+                            position: 'absolute', 
+                            top: -6, 
+                            right: -6, 
+                            fontSize: 16, 
+                            color: '#ffb300', 
+                            bgcolor: 'white', 
+                            borderRadius: '50%',
+                            boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
+                          }} />
+                        )}
+                      </Box>
+                      <Box>
+                        <Typography variant="body2" sx={{ fontWeight: 800, textDecoration: inativo ? 'line-through' : 'none', lineHeight: 1.1 }}>
+                          {r.nome}
+                        </Typography>
+                        <Typography variant="caption" color="textSecondary" sx={{ fontSize: '0.65rem' }}>
+                          {r.especie_nome}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  </TableCell>
+
+                  {/* COLUNA SEXO (COR/SÍMBOLO) + ANILHA */}
+                  <TableCell>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.2 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                        <Typography 
+                          variant="caption" 
+                          sx={{ 
+                            fontWeight: 'bold', 
+                            color: isMacho ? '#1976d2' : '#d81b60', 
+                            fontSize: '0.75rem',
+                            display: 'flex',
+                            alignItems: 'center'
+                          }}
+                        >
+                          {isMacho ? '♂ Macho' : '♀ Fêmea'}
+                        </Typography>
+                        {r.laudo_url && <ScienceIcon sx={{ fontSize: 14, color: '#4caf50' }} titleAccess="Possui Sexagem" />}
+                      </Box>
+                      
+                      <Typography 
+                        variant="caption" 
+                        sx={{ 
+                          fontWeight: 900, 
+                          bgcolor: '#f0f0f0', 
+                          px: 0.8, 
+                          py: 0.2, 
+                          borderRadius: 0.5, 
+                          width: 'fit-content',
+                          fontSize: '0.7rem',
+                          color: '#333',
+                          border: '1px solid #ddd'
+                        }}
+                      >
+                        {r.anilha}
+                      </Typography>
+                    </Box>
+                  </TableCell>
+
+                  {/* COLUNA STATUS */}
+                  <TableCell>
+                    <Chip 
+                      label={r.status} 
+                      size="small" 
+                      sx={{ height: 18, fontSize: '0.6rem', fontWeight: 'bold', textTransform: 'uppercase' }} 
+                      variant={inativo ? "outlined" : "filled"} 
+                      color={r.status === 'Ativo' ? 'success' : 'default'} 
+                    />
+                  </TableCell>
+
+                  {/* AÇÕES */}
+                  <TableCell align="right">
+                    <IconButton size="small" onClick={() => router.push(`/inicial_page/passaros/${r.id}`)} color="primary">
+                      <EditIcon fontSize="small" />
+                    </IconButton>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </TableContainer>
+    </Container>
   );
 }
 
 export default function ListaPassarosPage() {
   return (
-    <Suspense fallback={<CircularProgress />}>
+    <Suspense fallback={<Box p={5} textAlign="center"><CircularProgress /></Box>}>
       <ListaPassarosContent />
     </Suspense>
   );
