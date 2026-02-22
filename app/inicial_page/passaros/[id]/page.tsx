@@ -291,6 +291,27 @@ function PassaroFormContent() {
           >
             Imprimir Pedigree
           </Button>
+
+          <Button
+              variant="outlined"
+              fullWidth
+              startIcon={<AccountTreeIcon />}
+              // Alterado de 'id' para 'idUrl' e adicionado check de 'isNovo'
+              onClick={() => router.push(`/inicial_page/passaros/${idUrl}/genealogia-visual`)}
+              disabled={isNovo} 
+              sx={{
+                mt: 2,
+                fontWeight: 'bold',
+                color: isNovo ? 'text.disabled' : '#1565C0',
+                borderColor: isNovo ? 'divider' : '#1565C0',
+                '&:hover': {
+                  borderWidth: 2,
+                  bgcolor: 'rgba(21, 101, 192, 0.04)'
+                }
+              }}
+            >
+              Editor de Genealogia Visual
+            </Button>
           
           {isNovo && (
             <Typography variant="caption" color="textSecondary" textAlign="center">
