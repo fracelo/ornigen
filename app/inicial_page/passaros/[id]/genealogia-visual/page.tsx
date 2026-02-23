@@ -6,13 +6,19 @@ import { supabase } from "@/lib/supabaseClient";
 import { useEmpresa } from "@/context/empresaContext";
 import { 
   Box, Container, Typography, Paper, Autocomplete, 
-  TextField, Button, CircularProgress, Avatar, Stack, Divider, Chip, IconButton 
+  TextField, Button, CircularProgress, Avatar, Stack, Chip, IconButton 
 } from "@mui/material";
 
 import SaveIcon from "@mui/icons-material/Save";
-import ArrowBackIcon from "@mui/icons-material/ArrowBack";
-import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
 import ClearIcon from "@mui/icons-material/Clear";
+
+interface PassaroBase {
+  id: number;
+  nome: string;
+  anilha: string;
+  sexo: string;
+  data_nascimento: string | null;
+}
 
 export default function GenealogiaVisualPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: passaroId } = use(params);
@@ -21,11 +27,8 @@ export default function GenealogiaVisualPage({ params }: { params: Promise<{ id:
 
   const [loading, setLoading] = useState(true);
   const [salvando, setSalvando] = useState(false);
-  const [alvo, setAlvo] = useState<any>(null);
-  const [machos, setMachos] = useState<any[]>([]);
-  const [femeas, setFemeas] = useState<any[]>([]);
-  
-  // IDs que vieram originalmente do banco (para travar de verdade)
+  const [alvo, setAlvo] = useState<PassaroBase | null>(null);
+  const [todosPassaros, setTodosPassaros] = useState<PassaroBase[]>([]);
   const [idsOriginais, setIdsOriginais] = useState<number[]>([]);
 
   const [arvore, setArvore] = useState<any>({ 
@@ -33,53 +36,55 @@ export default function GenealogiaVisualPage({ params }: { params: Promise<{ id:
     g2: {}, g3: {}, g4: {} 
   });
 
-  const buscarLinhagemCompleta = async (id: number) => {
-    const { data } = await (supabase
-      .from("passaros")
-      .select(`
-        id, nome, anilha, 
-        pai:pai_id(id, nome, anilha, 
-          pai:pai_id(id, nome, anilha, pai:pai_id(id, nome, anilha), mae:mae_id(id, nome, anilha)), 
-          mae:mae_id(id, nome, anilha, pai:pai_id(id, nome, anilha), mae:mae_id(id, nome, anilha))
-        ), 
-        mae:mae_id(id, nome, anilha, 
-          pai:pai_id(id, nome, anilha, pai:pai_id(id, nome, anilha), mae:mae_id(id, nome, anilha)), 
-          mae:mae_id(id, nome, anilha, pai:pai_id(id, nome, anilha), mae:mae_id(id, nome, anilha))
-        )
-      `)
-      .eq("id", id).single() as any);
+  const buscarNoBanco = async (id: number) => {
+    const { data } = await (supabase.from("passaros").select(`
+      id, nome, anilha, data_nascimento, sexo,
+      pai:pai_id(id, nome, anilha, data_nascimento, sexo, 
+        pai:pai_id(id, nome, anilha, data_nascimento, sexo, pai:pai_id(id, nome, anilha, data_nascimento, sexo), mae:mae_id(id, nome, anilha, data_nascimento, sexo)), 
+        mae:mae_id(id, nome, anilha, data_nascimento, sexo, pai:pai_id(id, nome, anilha, data_nascimento, sexo), mae:mae_id(id, nome, anilha, data_nascimento, sexo))
+      ), 
+      mae:mae_id(id, nome, anilha, data_nascimento, sexo, 
+        pai:pai_id(id, nome, anilha, data_nascimento, sexo, pai:pai_id(id, nome, anilha, data_nascimento, sexo), mae:mae_id(id, nome, anilha, data_nascimento, sexo)), 
+        mae:mae_id(id, nome, anilha, data_nascimento, sexo, pai:pai_id(id, nome, anilha, data_nascimento, sexo), mae:mae_id(id, nome, anilha, data_nascimento, sexo))
+      )
+    `).eq("id", id).single() as any);
     return data;
   };
 
-  const atualizarNoEstado = async (id: number | null, nivel: string, chave: string) => {
+  const carregarComCascata = async (id: number | null, nivel: string, chave: string, initial = false) => {
+    if (!initial && idsOriginais.includes(arvore[chave]?.id)) return;
+
     if (!id) {
-        // Lógica para limpar o ramo se o usuário remover a seleção
-        setArvore((prev: any) => {
-            const nova = { ...prev };
-            if (nivel === 'g1') nova[chave] = null;
-            else if (nivel === 'g2') nova.g2[chave] = null;
-            else if (nivel === 'g3') nova.g3[chave] = null;
-            return { ...nova };
-        });
-        return;
+      setArvore((prev: any) => {
+        const n = { ...prev };
+        const lado = chave.split('_')[0];
+        if (nivel === 'g1') {
+          n[chave] = null;
+          n.g2[`${lado}_p`] = null; n.g2[`${lado}_m`] = null;
+        }
+        return { ...n };
+      });
+      return;
     }
 
-    const d = await buscarLinhagemCompleta(id);
-    if (!d) return;
-
+    const d = await buscarNoBanco(id);
     setArvore((prev: any) => {
-      const nova = { ...prev };
+      const n = { ...prev };
       if (nivel === 'g1') {
-        nova[chave] = d;
-        nova.g2[`${chave}_p`] = d.pai; nova.g2[`${chave}_m`] = d.mae;
+        n[chave] = d;
+        n.g2[`${chave}_p`] = d.pai; n.g2[`${chave}_m`] = d.mae;
+        n.g3[`${chave}_pp`] = d.pai?.pai; n.g3[`${chave}_pm`] = d.pai?.mae;
+        n.g3[`${chave}_mp`] = d.mae?.pai; n.g3[`${chave}_mm`] = d.mae?.mae;
       } else if (nivel === 'g2') {
-        nova.g2[chave] = d;
-        const [lado, tipo] = chave.split('_');
-        nova.g3[`${lado}_${tipo}p`] = d.pai; nova.g3[`${lado}_${tipo}m`] = d.mae;
+        n.g2[chave] = d;
+        const [l, t] = chave.split('_');
+        n.g3[`${l}_${t}p`] = d.pai; n.g3[`${l}_${t}m`] = d.mae;
       } else if (nivel === 'g3') {
-        nova.g3[chave] = d;
+        n.g3[chave] = d;
+        const [l, t] = chave.split('_');
+        n.g4[`${l}_${t}p`] = d.pai; n.g4[`${l}_${t}m`] = d.mae;
       }
-      return { ...nova };
+      return { ...n };
     });
   };
 
@@ -87,164 +92,145 @@ export default function GenealogiaVisualPage({ params }: { params: Promise<{ id:
     if (!passaroId || !empresaId) return;
     setLoading(true);
     try {
-      const { data: p } = await supabase.from("passaros").select(`*`).eq("id", passaroId).single();
+      const { data: p } = await supabase.from("passaros").select("*").eq("id", passaroId).single();
       setAlvo(p);
-
-      const { data: todos } = await supabase.from("passaros")
-        .select("id, nome, anilha, sexo")
-        .eq("empresa_id", empresaId)
-        .eq("especie_id", p.especie_id);
-
-      setMachos(todos?.filter((x: any) => x.sexo === 'M') || []);
-      setFemeas(todos?.filter((x: any) => x.sexo === 'F') || []);
-
-      // Mapeia o que já existe no banco para travar
-      const originais = [p.pai_id, p.mae_id].filter(Boolean);
-      setIdsOriginais(originais);
-
-      if (p.pai_id) await atualizarNoEstado(p.pai_id, 'g1', 'pai');
-      if (p.mae_id) await atualizarNoEstado(p.mae_id, 'g1', 'mae');
-
-    } catch (err) { console.error(err); } finally { setLoading(false); }
+      const { data: t } = await supabase.from("passaros").select("id, nome, anilha, sexo, data_nascimento").eq("empresa_id", empresaId).eq("especie_id", p.especie_id);
+      setTodosPassaros(t || []);
+      setIdsOriginais([p.pai_id, p.mae_id].filter(Boolean));
+      if (p.pai_id) await carregarComCascata(p.pai_id, 'g1', 'pai', true);
+      if (p.mae_id) await carregarComCascata(p.mae_id, 'g1', 'mae', true);
+    } finally { setLoading(false); }
   }, [passaroId, empresaId]);
 
   useEffect(() => { inicializar(); }, [inicializar]);
 
-  const handleGravarLinhagem = async () => {
+  const opcoesValidas = (s: string, d: string | null, temPredecessor: boolean) => {
+    if (!temPredecessor) return [];
+    return todosPassaros.filter(p => p.sexo === s && p.id !== alvo?.id && (!d || !p.data_nascimento || new Date(p.data_nascimento) < new Date(d)));
+  };
+
+  const handleGravar = async () => {
     setSalvando(true);
     try {
-      await supabase.from("passaros")
-        .update({ pai_id: arvore.pai?.id || null, mae_id: arvore.mae?.id || null })
-        .eq("id", passaroId);
-      alert("IA OrniGen: Genealogia corrigida e salva!");
+      const updates = [];
+      updates.push(supabase.from("passaros").update({ pai_id: arvore.pai?.id || null, mae_id: arvore.mae?.id || null }).eq("id", passaroId));
+      if (arvore.pai?.id && !idsOriginais.includes(arvore.pai.id)) updates.push(supabase.from("passaros").update({ pai_id: arvore.g2.pai_p?.id || null, mae_id: arvore.g2.pai_m?.id || null }).eq("id", arvore.pai.id));
+      if (arvore.mae?.id && !idsOriginais.includes(arvore.mae.id)) updates.push(supabase.from("passaros").update({ pai_id: arvore.g2.mae_p?.id || null, mae_id: arvore.g2.mae_m?.id || null }).eq("id", arvore.mae.id));
+      await Promise.all(updates);
+      alert("Sucesso!");
       router.back();
-    } catch (err) { alert("Erro ao salvar."); } finally { setSalvando(false); }
+    } finally { setSalvando(false); }
   };
 
   if (loading) return <Box textAlign="center" mt={10}><CircularProgress /></Box>;
 
   return (
-    <Container maxWidth={false} sx={{ py: 2, bgcolor: '#f4f7f9', minHeight: '100vh' }}>
+    <Container maxWidth={false} sx={{ py: 1, bgcolor: '#f1f5f9', minHeight: '100vh' }}>
       <style>{`
-        .tree-box { display: flex; align-items: center; gap: 60px; padding: 20px 0; }
-        .column { display: flex; flex-direction: column; justify-content: space-around; height: 550px; position: relative; }
-        .connector { position: absolute; right: -60px; top: 0; bottom: 0; width: 60px; display: flex; align-items: center; }
-        .line-h { width: 100%; height: 2px; background: #cbd5e1; }
-        .bracket { position: absolute; right: 0; top: 25%; bottom: 25%; width: 2px; background: #cbd5e1; display: flex; flex-direction: column; justify-content: space-between; }
-        .bracket::before, .bracket::after { content: ""; width: 15px; height: 2px; background: #cbd5e1; align-self: flex-end; }
+        .tree-container { display: flex; gap: 40px; align-items: center; padding: 10px 0; }
+        .col { display: flex; flex-direction: column; justify-content: space-around; height: 750px; position: relative; }
+        
+        /* Conector que fica entre as colunas */
+        .conn { position: absolute; right: -40px; top: 0; bottom: 0; width: 40px; display: flex; align-items: center; justify-content: center; }
+        
+        /* Linha horizontal que sai do combo da esquerda */
+        .line-out { width: 15px; height: 1.5px; background: #94a3b8; position: absolute; left: -5px; }
+        
+        /* O colchete (bracket) */
+        .bracket { position: absolute; left: 10px; top: 22%; bottom: 22%; width: 1.5px; background: #94a3b8; display: flex; flex-direction: column; justify-content: space-between; }
+        
+        /* Riscos horizontais que apontam para a DIREITA (para os combos da frente) */
+        .bracket::before, .bracket::after { content: ""; width: 15px; height: 1.5px; background: #94a3b8; align-self: flex-start; margin-left: 0px; transform: translateX(0); }
       `}</style>
 
-      {/* HEADER */}
-      <Paper elevation={0} sx={{ p: 2, mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderRadius: 3, borderBottom: '4px solid #0D47A1' }}>
-        <Stack direction="row" spacing={2} alignItems="center">
-          <Avatar src={alvo?.foto_url} sx={{ width: 50, height: 50, border: '2px solid #0D47A1' }} />
-          <Box>
-            <Typography variant="h6" fontWeight="bold">{alvo?.nome}</Typography>
-            <Typography variant="caption" color="primary">IA OrniGen • Modo Edição Flexível</Typography>
-          </Box>
-        </Stack>
-        <Button variant="contained" startIcon={salvando ? <CircularProgress size={20} color="inherit" /> : <SaveIcon />} onClick={handleGravarLinhagem} disabled={salvando}>
-          Gravar Linhagem
-        </Button>
+      <Paper elevation={1} sx={{ p: 2, mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderLeft: '6px solid #1e40af' }}>
+        <Typography variant="h6" sx={{ fontWeight: 'bold', color: '#1e3a8a' }}>{alvo?.nome} <span style={{fontSize: '12px', fontWeight: 'normal'}}>({alvo?.anilha})</span></Typography>
+        <Button variant="contained" size="large" startIcon={<SaveIcon />} onClick={handleGravar} disabled={salvando}>Gravar</Button>
       </Paper>
 
-      <Stack spacing={6}>
-        {/* ALA PATERNA */}
-        <Box sx={{ p: 3, bgcolor: 'white', borderRadius: 4, boxShadow: '0 2px 10px rgba(0,0,0,0.05)' }}>
-          <Chip label="LINHAGEM DO PAI" color="primary" sx={{ mb: 2, fontWeight: 'bold' }} />
-          <Box className="tree-box">
-             <Box className="column" sx={{ width: 220 }}>
-                <BoxSeletor placeholder="PAI (G1)" value={arvore.pai} opcoes={machos} onChange={(v:any) => atualizarNoEstado(v?.id || null, 'g1', 'pai')} destaque="#E3F2FD" original={idsOriginais.includes(arvore.pai?.id)} />
-                <Box className="connector"><Box className="line-h" /><Box className="bracket" /></Box>
-             </Box>
-             <Box className="column" sx={{ width: 220 }}>
-                <BoxSeletor placeholder="AVÔ P." value={arvore.g2.pai_p} opcoes={machos} onChange={(v:any) => atualizarNoEstado(v?.id || null, 'g2', 'pai_p')} />
-                <BoxSeletor placeholder="AVÓ P." value={arvore.g2.pai_m} opcoes={femeas} onChange={(v:any) => atualizarNoEstado(v?.id || null, 'g2', 'pai_m')} />
-                <Box className="connector"><Box className="line-h" /><Box className="bracket" /></Box>
-             </Box>
-             <Box className="column" sx={{ width: 220 }}>
-                <BoxSeletor placeholder="BIS PP" value={arvore.g3.pai_pp} opcoes={machos} onChange={(v:any) => atualizarNoEstado(v?.id || null, 'g3', 'pai_pp')} />
-                <BoxSeletor placeholder="BIS PM" value={arvore.g3.pai_pm} opcoes={femeas} onChange={(v:any) => atualizarNoEstado(v?.id || null, 'g3', 'pai_pm')} />
-                <BoxSeletor placeholder="BIS MP" value={arvore.g3.pai_mp} opcoes={machos} onChange={(v:any) => atualizarNoEstado(v?.id || null, 'g3', 'pai_mp')} />
-                <BoxSeletor placeholder="BIS MM" value={arvore.g3.pai_mm} opcoes={femeas} onChange={(v:any) => atualizarNoEstado(v?.id || null, 'g3', 'pai_mm')} />
-                <Box className="connector"><Box className="line-h" /><Box className="bracket" /></Box>
-             </Box>
-             <Box className="column" sx={{ width: 180 }}>
-                {[...Array(8)].map((_, i) => <BoxSeletor key={i} placeholder="TAT." small />)}
-             </Box>
-          </Box>
-        </Box>
+      <Stack spacing={2}>
+        {['pai', 'mae'].map((lado) => (
+          <Box key={lado} sx={{ p: 2, bgcolor: 'white', borderRadius: 2, boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+            <Chip 
+              label={`LINHAGEM DO ${lado.toUpperCase()}`} 
+              sx={{ mb: 2, fontWeight: 'bold', color: 'white', bgcolor: lado === 'pai' ? '#0D47A1' : '#880E4F' }} 
+            />
+            
+            <Box className="tree-container">
+              <Box className="col">
+                <SeletorCompacto label={lado === 'pai' ? "PAI" : "MÃE"} value={arvore[lado]} opcoes={opcoesValidas(lado === 'pai' ? 'M' : 'F', alvo?.data_nascimento || null, true)} onChange={(v:any) => carregarComCascata(v?.id, 'g1', lado)} original={idsOriginais.includes(arvore[lado]?.id)} />
+                <Box className="conn">
+                  <Box className="line-out" />
+                  <Box className="bracket" />
+                </Box>
+              </Box>
 
-        {/* ALA MATERNA */}
-        <Box sx={{ p: 3, bgcolor: 'white', borderRadius: 4, boxShadow: '0 2px 10px rgba(0,0,0,0.05)' }}>
-          <Chip label="LINHAGEM DA MÃE" color="secondary" sx={{ mb: 2, fontWeight: 'bold' }} />
-          <Box className="tree-box">
-             <Box className="column" sx={{ width: 220 }}>
-                <BoxSeletor placeholder="MÃE (G1)" value={arvore.mae} opcoes={femeas} onChange={(v:any) => atualizarNoEstado(v?.id || null, 'g1', 'mae')} destaque="#FCE4EC" original={idsOriginais.includes(arvore.mae?.id)} />
-                <Box className="connector"><Box className="line-h" /><Box className="bracket" /></Box>
-             </Box>
-             <Box className="column" sx={{ width: 220 }}>
-                <BoxSeletor placeholder="AVÔ M." value={arvore.g2.mae_p} opcoes={machos} onChange={(v:any) => atualizarNoEstado(v?.id || null, 'g2', 'mae_p')} />
-                <BoxSeletor placeholder="AVÓ M." value={arvore.g2.mae_m} opcoes={femeas} onChange={(v:any) => atualizarNoEstado(v?.id || null, 'g2', 'mae_m')} />
-                <Box className="connector"><Box className="line-h" /><Box className="bracket" /></Box>
-             </Box>
-             <Box className="column" sx={{ width: 220 }}>
-                <BoxSeletor placeholder="BIS PP" value={arvore.g3.mae_pp} opcoes={machos} onChange={(v:any) => atualizarNoEstado(v?.id || null, 'g3', 'mae_pp')} />
-                <BoxSeletor placeholder="BIS PM" value={arvore.g3.mae_pm} opcoes={femeas} onChange={(v:any) => atualizarNoEstado(v?.id || null, 'g3', 'mae_pm')} />
-                <BoxSeletor placeholder="BIS MP" value={arvore.g3.mae_mp} opcoes={machos} onChange={(v:any) => atualizarNoEstado(v?.id || null, 'g3', 'mae_mp')} />
-                <BoxSeletor placeholder="BIS MM" value={arvore.g3.mae_mm} opcoes={femeas} onChange={(v:any) => atualizarNoEstado(v?.id || null, 'g3', 'mae_mm')} />
-                <Box className="connector"><Box className="line-h" /><Box className="bracket" /></Box>
-             </Box>
-             <Box className="column" sx={{ width: 180 }}>
-                {[...Array(8)].map((_, i) => <BoxSeletor key={i} placeholder="TAT." small />)}
-             </Box>
+              <Box className="col">
+                <SeletorCompacto label="AVÔ" value={arvore.g2[`${lado}_p`]} opcoes={opcoesValidas('M', arvore[lado]?.data_nascimento, !!arvore[lado])} onChange={(v:any) => carregarComCascata(v?.id, 'g2', `${lado}_p`)} />
+                <SeletorCompacto label="AVÓ" value={arvore.g2[`${lado}_m`]} opcoes={opcoesValidas('F', arvore[lado]?.data_nascimento, !!arvore[lado])} onChange={(v:any) => carregarComCascata(v?.id, 'g2', `${lado}_m`)} />
+                <Box className="conn">
+                   <Box className="line-out" />
+                   <Box className="bracket" />
+                </Box>
+              </Box>
+
+              <Box className="col">
+                {['pp', 'pm', 'mp', 'mm'].map(s => {
+                  const paiMaeG2 = arvore.g2[`${lado}_${s[0] === 'p' ? 'p' : 'm'}`];
+                  return (
+                    <SeletorCompacto key={s} label="BIS." value={arvore.g3[`${lado}_${s}`]} opcoes={opcoesValidas(s.endsWith('p') ? 'M' : 'F', paiMaeG2?.data_nascimento, !!paiMaeG2)} onChange={(v:any) => carregarComCascata(v?.id, 'g3', `${lado}_${s}`)} />
+                  );
+                })}
+                <Box className="conn">
+                   <Box className="line-out" />
+                   <Box className="bracket" />
+                </Box>
+              </Box>
+
+              <Box className="col">
+                {['ppp', 'ppm', 'pmp', 'pmm', 'mpp', 'mpm', 'mmp', 'mmm'].map((s, i) => {
+                  const ancestralG3 = arvore.g3[`${lado}_${s.substring(0, 2)}`];
+                  return (
+                    <SeletorCompacto key={i} label="TAT." value={arvore.g4[`${lado}_${s}`]} opcoes={opcoesValidas(s.endsWith('p') ? 'M' : 'F', ancestralG3?.data_nascimento, !!ancestralG3)} onChange={(v:any) => {}} />
+                  );
+                })}
+              </Box>
+            </Box>
           </Box>
-        </Box>
+        ))}
       </Stack>
     </Container>
   );
 }
 
-function BoxSeletor({ placeholder, value, opcoes, onChange, destaque = "white", original = false }: any) {
-  // A IA agora só trava o que já é "passado imutável" (veio do banco originalmente)
-  // Se for uma escolha nova da sessão, o onChange permite trocar.
-  const isLocked = original; 
-
+function SeletorCompacto({ label, value, opcoes, onChange, original }: any) {
   return (
-    <Box sx={{ ml: 2, position: 'relative' }}>
+    <Box sx={{ width: 175, position: 'relative' }}>
       <Autocomplete
-        disabled={isLocked}
+        disabled={original}
         options={opcoes || []}
-        getOptionLabel={(opt: any) => `${opt.nome || ''} - ${opt.anilha || ''}`}
+        getOptionLabel={(o) => `${o.nome} - ${o.anilha}`}
         value={value || null}
-        onChange={(_, v) => onChange && onChange(v)}
-        renderInput={(params) => (
+        noOptionsText="Sem opções"
+        onChange={(_, v) => onChange(v)}
+        size="small"
+        renderInput={(p) => (
           <TextField 
-            {...params} 
-            size="small" 
-            placeholder={value?.nome ? `${value.nome} - ${value.anilha}` : placeholder}
-            sx={{ 
-              bgcolor: isLocked ? '#f1f5f9' : destaque, 
-              borderRadius: 1.5,
-              '& .MuiOutlinedInput-root': { 
-                height: 36, fontSize: '0.75rem', 
-                border: isLocked ? '1px solid #cbd5e1' : '1px solid #3b82f6', 
-                '& fieldset': { border: 'none' } 
-              },
-              '& .MuiInputBase-input::placeholder': { color: isLocked ? '#64748b' : '#1e40af', opacity: 1, fontWeight: 'bold' }
-            }} 
+            {...p} 
+            label={label} 
+            variant="outlined" 
+            InputLabelProps={{ style: { fontSize: '10px' } }}
+            InputProps={{ 
+              ...p.InputProps, 
+              style: { fontSize: '12px', height: '28px', padding: '0 4px' } 
+            }}
           />
         )}
       />
-      {/* Botão de Limpeza rápida para o que não está travado */}
-      {!isLocked && value?.id && (
-          <IconButton 
-            size="small" 
-            onClick={() => onChange(null)}
-            sx={{ position: 'absolute', right: -30, top: 2, color: '#ff4444' }}
-          >
-              <ClearIcon fontSize="inherit" />
-          </IconButton>
+      {!original && value && (
+        <IconButton size="small" onClick={() => onChange(null)} sx={{ position: 'absolute', right: -24, top: 2, color: '#ef4444', p: 0 }}>
+          <ClearIcon sx={{ fontSize: '14px' }} />
+        </IconButton>
       )}
     </Box>
   );

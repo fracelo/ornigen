@@ -110,7 +110,7 @@ export default function InicialLayout({ children }: { children: React.ReactNode 
           {/* 🔹 Primeiro item: Home */}
           <ListItemButton
             selected={pathname === "/"}
-            onClick={() => goTo("/inicial_page/passaros")}
+            onClick={() => goTo("/inicial_page/")}
           >
             <ListItemIcon>
               <HomeIcon sx={{ color: "#fff" }} />
@@ -127,6 +127,17 @@ export default function InicialLayout({ children }: { children: React.ReactNode 
               <NatureIcon sx={{ color: "#fff" }} />
             </ListItemIcon>
             <ListItemText primary="Criadouros" />
+          </ListItemButton>
+
+          {/* 🔹 Entidades */}
+          <ListItemButton
+            selected={pathname === "/inicial_page/entidades"}
+            onClick={() => goTo("/inicial_page/entidades")}
+          >
+            <ListItemIcon>
+              <NatureIcon sx={{ color: "#fff" }} />
+            </ListItemIcon>
+            <ListItemText primary="Entidades" />
           </ListItemButton>
 
           {/* 🔹 Espécies */}
@@ -177,45 +188,16 @@ export default function InicialLayout({ children }: { children: React.ReactNode 
             </List>
           </Collapse>
 
-          {/* 🔹 Controle de Anilhas com submenu */}
-          <ListItemButton onClick={() => setOpenAnilhas(!openAnilhas)}>
+         {/* 🔹 Anilhas */}
+          <ListItemButton
+            selected={pathname === "/inicial_page/anilhas"}
+            onClick={() => goTo("/inicial_page/anilhas")}
+          >
             <ListItemIcon>
-              <InventoryIcon sx={{ color: "#fff" }} />
+              <PetsIcon sx={{ color: "#fff" }} />
             </ListItemIcon>
-            <ListItemText primary="Controle de Anilhas" />
-            {openAnilhas ? <ExpandLess /> : <ExpandMore />}
+            <ListItemText primary="Anilhas" />
           </ListItemButton>
-
-          <Collapse in={openAnilhas} timeout="auto" unmountOnExit>
-            <List component="div" disablePadding>
-              <ListItemButton
-                sx={{ pl: 4 }}
-                selected={pathname === "/inicial_page/anilhas_pedidos"}
-                onClick={() => goTo("/inicial_page/anilhas_pedidos")}
-              >
-                <ListItemIcon><ShoppingCartIcon sx={{ color: "#fff", fontSize: 20 }} /></ListItemIcon>
-                <ListItemText primary="Pedidos (IBAMA)" />
-              </ListItemButton>
-
-              <ListItemButton
-                sx={{ pl: 4 }}
-                selected={pathname === "/inicial_page/anilhas_estoque"}
-                onClick={() => goTo("/inicial_page/anilhas_estoque")}
-              >
-                <ListItemIcon><InventoryIcon sx={{ color: "#fff", fontSize: 20 }} /></ListItemIcon>
-                <ListItemText primary="Estoque Disponível" />
-              </ListItemButton>
-
-              <ListItemButton
-                sx={{ pl: 4 }}
-                selected={pathname === "/inicial_page/anilhas_produtores"}
-                onClick={() => goTo("/inicial_page/anilhas_produtores")}
-              >
-                <ListItemIcon><SettingsIcon sx={{ color: "#fff", fontSize: 20 }} /></ListItemIcon>
-                <ListItemText primary="Produtores/Fábricas" />
-              </ListItemButton>
-            </List>
-          </Collapse>
 
           {/* 🔹 Logout */}
           <ListItemButton onClick={handleLogout}>

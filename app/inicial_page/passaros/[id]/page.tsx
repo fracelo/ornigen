@@ -6,35 +6,31 @@ import { supabase } from "@/lib/supabaseClient";
 import { useEmpresa } from "@/context/empresaContext";
 import { useAuth } from "@/context/authContext";
 import {
-  Box, TextField, Button, Typography, FormControl, InputLabel,
-  Select, MenuItem, CircularProgress, Paper, Container, 
-  Dialog, DialogTitle, DialogContent, DialogActions, IconButton, Divider,
-  Table, TableHead, TableRow, TableCell, TableBody, TableContainer, Chip
+  Box, TextField, Button, Typography, CircularProgress, Paper, Container, 
+  Dialog, DialogTitle, DialogContent, DialogActions, IconButton,
+  Autocomplete, Radio, RadioGroup, FormControlLabel,
+  Stack, Divider, Select, MenuItem, InputLabel, FormControl,
+  Table, TableBody, TableCell, TableContainer, TableRow, Tooltip, Avatar
 } from "@mui/material";
 
-// Ícones MUI 5
+// Ícones
 import SaveIcon from "@mui/icons-material/Save";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
-import CloudUploadIcon from "@mui/icons-material/CloudUpload";
-import AddIcon from "@mui/icons-material/Add";
-import VideoLibraryIcon from "@mui/icons-material/VideoLibrary";
-import GraphicEqIcon from "@mui/icons-material/GraphicEq";
-import VisibilityIcon from "@mui/icons-material/Visibility";
-import DeleteIcon from "@mui/icons-material/Delete";
-import BadgeIcon from "@mui/icons-material/Badge";
 import AccountTreeIcon from "@mui/icons-material/AccountTree";
-import CollectionsIcon from "@mui/icons-material/Collections";
-import StarIcon from "@mui/icons-material/Star";
-import HistoryIcon from "@mui/icons-material/History";
-import ScienceIcon from "@mui/icons-material/Science";
-import PictureAsPdfIcon from "@mui/icons-material/PictureAsPdf";
 import PrintIcon from "@mui/icons-material/Print";
+import DeleteIcon from "@mui/icons-material/Delete";
+import CloudUploadIcon from "@mui/icons-material/CloudUpload";
+import VisibilityIcon from "@mui/icons-material/Visibility";
+import VideoLibraryIcon from "@mui/icons-material/VideoLibrary";
+import EmojiEventsIcon from "@mui/icons-material/EmojiEvents";
+import CorporateFareIcon from "@mui/icons-material/CorporateFare";
+import AddIcon from "@mui/icons-material/Add";
 
 import CrachaPassaro from "@/components/CrachaPassaro";
 
 function PassaroFormContent() {
   const params = useParams();
-  const idUrl = params.id;
+  const idUrl = params.id as string;
   const isNovo = idUrl === "novo";
   
   const router = useRouter();
@@ -42,314 +38,320 @@ function PassaroFormContent() {
   const { usuarioId } = useAuth();
 
   const [loading, setLoading] = useState(true);
+  const [salvando, setSalvando] = useState(false);
   const [form, setForm] = useState<any>(null);
-  const [midias, setMidias] = useState<any[]>([]);
-  const [historicoStatus, setHistoricoStatus] = useState<any[]>([]);
-  const [especies, setEspecies] = useState<any[]>([]);
+  
   const [pais, setPais] = useState<any[]>([]);
   const [maes, setMaes] = useState<any[]>([]);
+  const [midias, setMidias] = useState<any[]>([]);
+  const [especies, setEspecies] = useState<any[]>([]);
+  const [historicoStatus, setHistoricoStatus] = useState<any[]>([]);
+  const [estoqueAnilhasGlobal, setEstoqueAnilhasGlobal] = useState<any[]>([]);
 
-  // Modais e Estados
-  const [modalStatusAberto, setModalStatusAberto] = useState(false);
-  const [novoStatusTemp, setNovoStatusTemp] = useState("");
-  const [dataOcorrencia, setDataOcorrencia] = useState(new Date().toISOString().split('T')[0]);
-  const [obsStatus, setObsStatus] = useState("");
+  const [todasEntidades, setTodasEntidades] = useState<any[]>([]);
+  const [entidadesVinculadas, setEntidadesVinculadas] = useState<any[]>([]);
+  const [torneios, setTorneios] = useState<any[]>([]);
+  
+  const [exibirEstoque, setExibirEstoque] = useState(false);
+  const [modalAnilhaRapida, setModalAnilhaRapida] = useState(false);
+  const [novaAnilhaNum, setNovaAnilhaNum] = useState("");
   const [modalMidiaAberto, setModalMidiaAberto] = useState(false);
   const [tipoMidia, setTipoMidia] = useState('foto');
   const [arquivo, setArquivo] = useState<File | null>(null);
-  const [mediaView, setMediaView] = useState<any>(null);
-  const [subindoSexagem, setSubindoSexagem] = useState(false);
+
+  const [modalTorneioAberto, setModalTorneioAberto] = useState(false);
+  const [modalEntidadeAberto, setModalEntidadeAberto] = useState(false);
+  const [novoTorneio, setNovoTorneio] = useState<any>({ data_inicio: "", categoria: "", colocacao: "", entidade_id: "" });
+  const [novoVinculo, setNovoVinculo] = useState({ entidade_id: "", numero_socio: "" });
 
   const carregarDados = useCallback(async () => {
     if (!empresaId) return;
     try {
-      const [resP, resM, resE] = await Promise.all([
+      const [resP, resM, resA, resE, resEnt] = await Promise.all([
         supabase.from("passaros").select("id, nome, anilha").eq("empresa_id", empresaId).eq("sexo", "M"),
         supabase.from("passaros").select("id, nome, anilha").eq("empresa_id", empresaId).eq("sexo", "F"),
-        supabase.from("especies_sispass").select("id, nomes_comuns").order('nomes_comuns')
+        supabase.from("anilhas").select("*").eq("empresa_id", empresaId).eq("status", 1).is("passaro_filhote_id", null),
+        supabase.from("especies_sispass").select("id, nomes_comuns").order('nomes_comuns'),
+        supabase.from("entidades").select("*").eq("empresa_id", empresaId).order('nome')
       ]);
+
       setPais(resP.data || []);
       setMaes(resM.data || []);
+      setEstoqueAnilhasGlobal(resA.data || []);
       setEspecies(resE.data || []);
+      setTodasEntidades(resEnt.data || []);
 
-      if (isNovo) {
-        setForm({ nome: "", anilha: "", sexo: "M", status: "Ativo", especie_id: "", codigo_sispass_ave: "", data_sexagem: "", laboratorio: "", laudo_url: "" });
-      } else {
-        const { data: passaro } = await supabase.from("passaros").select(`*`).eq("id", idUrl).single();
+      if (isNovo && !form) {
+        setForm({
+          nome: "", anilha: "", sexo: "M", status: "Ativo", especie_id: "",
+          data_nascimento: new Date().toISOString().split('T')[0],
+          mae_id: null, pai_id: null, laboratorio: ""
+        });
+      } else if (!isNovo) {
+        const passaroId = Number(idUrl);
+        const { data: passaro } = await supabase.from("passaros").select(`*`).eq("id", passaroId).single();
         if (passaro) {
           setForm(passaro);
-          const [resMid, resHis] = await Promise.all([
-            supabase.from("passaros_midia").select("*").eq("passaro_id", passaro.id).neq("tipo", "sexagem").order('principal', { ascending: false }),
-            supabase.from("passaros_status_historico").select("*").eq("passaro_id", passaro.id).order('created_at', { ascending: false })
+          const [resMid, resHis, resVinculo, resTor] = await Promise.all([
+            supabase.from("passaros_midia").select("*").eq("passaro_id", passaroId).order('created_at', { ascending: false }),
+            supabase.from("passaros_status_historico").select("*").eq("passaro_id", passaroId).order('created_at', { ascending: false }),
+            supabase.from("passaros_entidades").select("*, entidades(nome, sigla, logo_url)").eq("passaro_id", passaroId),
+            supabase.from("passaros_torneios").select("*, entidades(nome, sigla)").eq("passaro_id", passaroId).order('data_inicio', { ascending: false })
           ]);
           setMidias(resMid.data || []);
           setHistoricoStatus(resHis.data || []);
+          setEntidadesVinculadas(resVinculo.data || []);
+          setTorneios(resTor.data || []);
         }
       }
-    } catch (err) { console.error("Erro carga:", err); } finally { setLoading(false); }
+    } catch (err) { console.error(err); } finally { setLoading(false); }
   }, [idUrl, empresaId, isNovo]);
 
   useEffect(() => { carregarDados(); }, [carregarDados]);
 
-  const handleSalvar = async () => {
-    setLoading(true);
-    const { especies_sispass, ...payload } = form;
-    const finalPayload = { ...payload, empresa_id: empresaId, usuario_id: usuarioId };
+  const handleSalvarPassaro = async () => {
+    if (salvando) return;
+    if (isNovo && !form.anilha) { alert("Selecione uma anilha."); return; }
+    setSalvando(true);
     try {
       if (isNovo) {
-        const { data, error } = await supabase.from("passaros").insert([finalPayload]).select().single();
-        if (error) throw error;
-        router.push(`/inicial_page/passaros/${data.id}`);
+        const { data: novoPassaro, error: errPassaro } = await supabase.from("passaros").insert([{ ...form, empresa_id: empresaId, usuario_id: usuarioId }]).select().single();
+        if (errPassaro) throw errPassaro;
+        await supabase.from("anilhas").update({ status: 2, passaro_filhote_id: novoPassaro.id, data_utilizacao: new Date().toISOString() }).eq("numero", form.anilha).eq("empresa_id", empresaId);
+        router.push(`/inicial_page/passaros/${novoPassaro.id}`);
       } else {
-        await supabase.from("passaros").update(finalPayload).eq("id", form.id);
-        router.push("/inicial_page/passaros");
+        await supabase.from("passaros").update(form).eq("id", form.id);
+        alert("Pássaro atualizado!");
       }
-    } catch (err) { alert("Erro ao salvar"); setLoading(false); }
-  };
-
-  const handleUploadSexagem = async (e: any) => {
-    const file = e.target.files?.[0];
-    if (!file || isNovo) return;
-    setSubindoSexagem(true);
-    try {
-      const fileExt = file.name.split('.').pop();
-      const filePath = `${empresaId}/${form.id}/sexagem_${Date.now()}.${fileExt}`;
-      const { error: upErr } = await supabase.storage.from('laudos').upload(filePath, file);
-      if (upErr) throw upErr;
-      const { data: { publicUrl } } = supabase.storage.from('laudos').getPublicUrl(filePath);
-      await supabase.from("passaros").update({ laudo_url: publicUrl }).eq("id", form.id);
-      await supabase.from("passaros_midia").insert([{
-        passaro_id: parseInt(form.id), empresa_id: empresaId, url: publicUrl, tipo: 'sexagem', principal: false
-      }]);
-      setForm({ ...form, laudo_url: publicUrl });
-      alert("Laudo importado com sucesso!");
-    } catch (err: any) { alert(`Erro no laudo: ${err.message}`); } finally { setSubindoSexagem(false); }
+    } catch (err) { alert("Erro ao salvar."); } finally { setSalvando(false); }
   };
 
   const handleUploadMidia = async () => {
-    if (!arquivo || !form?.id) return;
-    setLoading(true);
+    if (!arquivo || !form?.id || !empresaId) return;
+    setSalvando(true);
     try {
       const fileExt = arquivo.name.split('.').pop();
-      const fileName = `${Date.now()}.${fileExt}`;
-      const filePath = `${empresaId}/${form.id}/${fileName}`;
-      const { error: upErr } = await supabase.storage.from('laudos').upload(filePath, arquivo);
-      if (upErr) throw upErr;
-      const { data: { publicUrl } } = supabase.storage.from('laudos').getPublicUrl(filePath);
-      await supabase.from("passaros_midia").insert([{
-        passaro_id: parseInt(form.id), empresa_id: empresaId, url: publicUrl, tipo: tipoMidia, principal: false
+      const filePath = `${empresaId}/${form.id}/${Date.now()}.${fileExt}`;
+      await supabase.storage.from('laudos').upload(filePath, arquivo);
+      const { data: urlData } = supabase.storage.from('laudos').getPublicUrl(filePath);
+      await supabase.from('passaros_midia').insert([{ 
+        passaro_id: form.id, empresa_id: empresaId, url: urlData.publicUrl, tipo: tipoMidia 
       }]);
       setModalMidiaAberto(false);
       setArquivo(null);
       carregarDados();
-    } catch (err: any) { alert(`Erro: ${err.message}`); } finally { setLoading(false); }
+    } catch (err) { alert("Erro no upload"); } finally { setSalvando(false); }
   };
 
-  const confirmarMudancaStatus = async () => {
-    if (!form?.id) return;
-    try {
-      await supabase.from("passaros_status_historico").insert([{
-        passaro_id: parseInt(form.id), empresa_id: empresaId, status_anterior: form.status,
-        status_novo: novoStatusTemp, data_alteracao: dataOcorrencia, observacao: obsStatus
-      }]);
-      await supabase.from("passaros").update({ status: novoStatusTemp }).eq("id", form.id);
-      setForm({ ...form, status: novoStatusTemp });
-      setModalStatusAberto(false);
-      carregarDados();
-    } catch (err) { alert("Erro status"); }
+  const handleAddTorneio = async () => {
+    await supabase.from("passaros_torneios").insert([{ ...novoTorneio, passaro_id: Number(idUrl), empresa_id: empresaId }]);
+    setModalTorneioAberto(false);
+    carregarDados();
   };
 
-  const abrirPedigree = () => {
-    if (isNovo) {
-      alert("Salve o pássaro primeiro para gerar o pedigree.");
-      return;
-    }
-    window.open(`/inicial_page/passaros/${form.id}/pedigree`, '_blank');
+  const handleAddEntidade = async () => {
+    await supabase.from("passaros_entidades").insert([{ ...novoVinculo, passaro_id: Number(idUrl), empresa_id: empresaId }]);
+    setModalEntidadeAberto(false);
+    carregarDados();
   };
 
-  const TituloSecao = ({ icon, children, action }: any) => (
-    <Box sx={{ mb: 1 }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Box sx={{ color: '#1976d2', display: 'flex' }}>{icon}</Box>
-          <Typography variant="caption" fontWeight="bold" sx={{ color: '#1976d2', textTransform: 'uppercase' }}>{children}</Typography>
-        </Box>
-        {action}
-      </Box>
-      <Divider sx={{ mb: 1 }} />
-    </Box>
-  );
+  const anilhasDisponiveis = estoqueAnilhasGlobal.filter(a => a.passaro_femea_id === form?.mae_id);
 
   if (loading || !form) return <Box textAlign="center" p={10}><CircularProgress /></Box>;
 
   return (
     <Container maxWidth="lg" sx={{ py: 2 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-        <Typography variant="h6" fontWeight="900" color="primary">{isNovo ? "NOVO PÁSSARO" : "FICHA TÉCNICA"}</Typography>
+        <Typography variant="h6" fontWeight="bold" color="primary">{isNovo ? "NOVO FILHOTE" : "FICHA TÉCNICA"}</Typography>
         <Button startIcon={<ArrowBackIcon />} onClick={() => router.push("/inicial_page/passaros")} size="small">Voltar</Button>
       </Box>
 
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '1fr 380px' }, gap: 2 }}>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           
-          {/* Identificação */}
+          {/* SEÇÃO 1: IDENTIFICAÇÃO E LAUDO */}
           <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
-            <TituloSecao icon={<BadgeIcon fontSize="small" />}>Identificação</TituloSecao>
+            <Typography variant="caption" fontWeight="bold" color="primary" sx={{ display: 'block', mb: 2 }}>IDENTIFICAÇÃO E LAUDO</Typography>
             <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: 1.5 }}>
-              <Box sx={{ gridColumn: 'span 12' }}><TextField label="Nome" fullWidth size="small" value={form.nome || ""} onChange={(e) => setForm({...form, nome: e.target.value})} /></Box>
-              <Box sx={{ gridColumn: 'span 6' }}>
-                <FormControl fullWidth size="small"><InputLabel>Sexo</InputLabel><Select value={form.sexo || "M"} label="Sexo" onChange={(e) => setForm({...form, sexo: e.target.value})}><MenuItem value="M">Macho ♂</MenuItem><MenuItem value="F">Fêmea ♀</MenuItem></Select></FormControl>
+              <Box sx={{ gridColumn: 'span 12' }}>
+                <TextField label="Nome" fullWidth size="small" value={form.nome || ""} onChange={(e) => setForm({...form, nome: e.target.value})} />
               </Box>
-              <Box sx={{ gridColumn: 'span 6' }}>
-                <FormControl fullWidth size="small"><InputLabel>Status</InputLabel><Select value={form.status || "Ativo"} label="Status" onChange={(e) => { if(isNovo) setForm({...form, status: e.target.value}); else { setNovoStatusTemp(e.target.value); setModalStatusAberto(true); } }}>
-                  <MenuItem value="Ativo">Ativo</MenuItem><MenuItem value="Morto">Morto</MenuItem><MenuItem value="Fuga">Fuga</MenuItem><MenuItem value="Transferido">Transferido</MenuItem>
-                </Select></FormControl>
+              
+              <Box sx={{ gridColumn: 'span 4' }}>
+                <TextField label="Anilha" fullWidth size="small" value={form.anilha || ""} disabled sx={{ "& .MuiInputBase-input.Mui-disabled": { WebkitTextFillColor: "#d32f2f", fontWeight: '900' } }} />
               </Box>
-              <Box sx={{ gridColumn: 'span 6' }}><TextField label="Anilha" fullWidth size="small" value={form.anilha || ""} onChange={(e) => setForm({...form, anilha: e.target.value})} /></Box>
-              <Box sx={{ gridColumn: 'span 6' }}><TextField type="date" label="Nascimento" fullWidth size="small" value={form.data_nascimento || ""} onChange={(e) => setForm({...form, data_nascimento: e.target.value})} InputLabelProps={{ shrink: true }} /></Box>
-              <Box sx={{ gridColumn: 'span 12' }}><FormControl fullWidth size="small"><InputLabel>Espécie</InputLabel><Select value={form.especie_id || ""} label="Espécie" onChange={(e) => setForm({...form, especie_id: e.target.value})}>{especies.map(e => <MenuItem key={e.id} value={e.id}>{e.nomes_comuns?.[0]}</MenuItem>)}</Select></FormControl></Box>
+              
+              <Box sx={{ gridColumn: 'span 4' }}>
+                <FormControl fullWidth size="small">
+                  <InputLabel>Sexo</InputLabel>
+                  <Select value={form.sexo || "M"} label="Sexo" onChange={(e) => setForm({...form, sexo: e.target.value})}>
+                    <MenuItem value="M">Macho (♂)</MenuItem>
+                    <MenuItem value="F">Fêmea (♀)</MenuItem>
+                  </Select>
+                </FormControl>
+              </Box>
+
+              <Box sx={{ gridColumn: 'span 4' }}>
+                <TextField type="date" label="Nascimento" fullWidth size="small" value={form.data_nascimento || ""} onChange={(e) => setForm({...form, data_nascimento: e.target.value})} InputLabelProps={{ shrink: true }} />
+              </Box>
+
+              <Box sx={{ gridColumn: 'span 12' }}>
+                <FormControl fullWidth size="small">
+                  <InputLabel>Espécie</InputLabel>
+                  <Select value={form.especie_id || ""} label="Espécie" onChange={(e: any) => setForm({...form, especie_id: e.target.value})}>
+                    {especies.map(e => <MenuItem key={e.id} value={e.id}>{e.nomes_comuns?.[0]}</MenuItem>)}
+                  </Select>
+                </FormControl>
+              </Box>
+
+              <Box sx={{ gridColumn: 'span 8' }}>
+                <TextField label="Laboratório / Sexagem" fullWidth size="small" value={form.laboratorio || ""} onChange={(e) => setForm({...form, laboratorio: e.target.value})} />
+              </Box>
+              <Box sx={{ gridColumn: 'span 4' }}>
+                <Button variant="contained" component="label" fullWidth color="info" size="small" startIcon={<CloudUploadIcon />} sx={{ height: '38px' }}>
+                  PDF<input type="file" hidden />
+                </Button>
+              </Box>
             </Box>
           </Paper>
 
-          {/* Ancestralidade */}
+          {/* SEÇÃO 2: GENEALOGIA */}
           <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
-            <TituloSecao icon={<AccountTreeIcon fontSize="small" />}>Ancestralidade</TituloSecao>
-            <Box sx={{ display: 'flex', gap: 2 }}>
-              <FormControl fullWidth size="small"><InputLabel>Pai</InputLabel><Select value={form.pai_id || ""} label="Pai" onChange={(e) => setForm({...form, pai_id: e.target.value})}><MenuItem value="">Desconhecido</MenuItem>{pais.map(p => <MenuItem key={p.id} value={p.id}>{p.nome}</MenuItem>)}</Select></FormControl>
-              <FormControl fullWidth size="small"><InputLabel>Mãe</InputLabel><Select value={form.mae_id || ""} label="Mãe" onChange={(e) => setForm({...form, mae_id: e.target.value})}><MenuItem value="">Desconhecida</MenuItem>{maes.map(m => <MenuItem key={m.id} value={m.id}>{m.nome}</MenuItem>)}</Select></FormControl>
-            </Box>
-          </Paper>
-
-          {/* Sexagem */}
-          <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
-            <TituloSecao 
-              icon={<ScienceIcon fontSize="small" />} 
-              action={form.laudo_url && <Button size="small" startIcon={<VisibilityIcon />} onClick={() => window.open(form.laudo_url, '_blank')} sx={{ fontSize: '0.65rem' }}>Ver Laudo</Button>}
-            > Sexagem </TituloSecao>
-            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-              <TextField label="Laboratório" sx={{ flex: 2 }} size="small" value={form.laboratorio || ""} onChange={(e) => setForm({...form, laboratorio: e.target.value})} />
-              <TextField type="date" label="Data" sx={{ flex: 1.2 }} size="small" value={form.data_sexagem || ""} onChange={(e) => setForm({...form, data_sexagem: e.target.value})} InputLabelProps={{ shrink: true }} />
-              <Button variant="contained" component="label" color="info" startIcon={subindoSexagem ? <CircularProgress size={16} color="inherit" /> : <CloudUploadIcon />} disabled={isNovo || subindoSexagem} sx={{ height: 40, flex: 1, fontSize: '0.75rem' }}>
-                {subindoSexagem ? "..." : "Importar"}
-                <input type="file" hidden accept="image/*,application/pdf" onChange={handleUploadSexagem} />
-              </Button>
-            </Box>
-          </Paper>
-
-          {!isNovo && (
-            <>
-              <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
-                <TituloSecao icon={<CollectionsIcon fontSize="small" />} action={<Button variant="contained" size="small" startIcon={<AddIcon />} onClick={() => setModalMidiaAberto(true)} sx={{height:26, fontSize:'0.7rem'}}>Adicionar</Button>}>Galeria</TituloSecao>
-                <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', mt: 1 }}>
-                  {midias.map((m) => (
-                    <Box key={m.id} sx={{ width: 100, textAlign: 'center' }}>
-                      <Box sx={{ height: 80, bgcolor: '#eee', borderRadius: 1, overflow: 'hidden', border: m.principal ? '2px solid #ffb300' : '1px solid #ddd', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }} onClick={() => setMediaView(m)}>
-                        {m.tipo === 'foto' ? <img src={m.url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : m.tipo === 'video' ? <VideoLibraryIcon color="action" /> : <GraphicEqIcon color="primary" />}
-                      </Box>
-                      <Box sx={{ display: 'flex', justifyContent: 'center', mt: 0.2 }}>
-                        <IconButton size="small" onClick={async () => { await supabase.from("passaros_midia").update({ principal: false }).eq("passaro_id", form.id); await supabase.from("passaros_midia").update({ principal: true }).eq("id", m.id); carregarDados(); }} color={m.principal ? "warning" : "default"}><StarIcon sx={{ fontSize: 18 }} /></IconButton>
-                        <IconButton size="small" onClick={() => setMediaView(m)}><VisibilityIcon sx={{ fontSize: 18 }} /></IconButton>
-                        <IconButton size="small" color="error" onClick={async () => { if(confirm("Excluir?")) { await supabase.from("passaros_midia").delete().eq("id", m.id); carregarDados(); } }}><DeleteIcon sx={{ fontSize: 18 }} /></IconButton>
-                      </Box>
-                    </Box>
-                  ))}
+            <Typography variant="caption" fontWeight="bold" color="primary" sx={{ display: 'block', mb: 2 }}>GENEALOGIA</Typography>
+            <Stack spacing={2}>
+              <Autocomplete options={pais} getOptionLabel={(o) => `${o.nome} (${o.anilha})`} value={pais.find(p => p.id === form.pai_id) || null} onChange={(_, v) => setForm({...form, pai_id: v?.id})} renderInput={(params) => <TextField {...params} label="Pai" size="small" />} />
+              <Stack direction="row" spacing={1}>
+                <Autocomplete sx={{ flex: 1 }} options={maes} getOptionLabel={(o) => `${o.nome} (${o.anilha})`} value={maes.find(m => m.id === form.mae_id) || null} onChange={(_, v) => { setForm({...form, mae_id: v?.id, anilha: ""}); setExibirEstoque(false); }} renderInput={(params) => <TextField {...params} label="Mãe" size="small" />} />
+                <Button variant="outlined" size="small" onClick={() => setExibirEstoque(!exibirEstoque)} disabled={!form.mae_id}>Anilhas</Button>
+              </Stack>
+              {exibirEstoque && (
+                <Box sx={{ p: 1.5, bgcolor: '#f0f7ff', borderRadius: 2, border: '1px dashed #2196f3' }}>
+                  <RadioGroup row value={form.anilha} onChange={(e) => setForm({...form, anilha: e.target.value})}>
+                    {anilhasDisponiveis.map((an: any) => (<FormControlLabel key={an.id} value={an.numero} control={<Radio size="small" />} label={<Typography variant="caption">{an.numero}</Typography>} />))}
+                  </RadioGroup>
                 </Box>
-              </Paper>
+              )}
+            </Stack>
+          </Paper>
 
-              <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
-                <TituloSecao icon={<HistoryIcon fontSize="small" />}>Histórico</TituloSecao>
-                <TableContainer sx={{ maxHeight: 150 }}><Table size="small" stickyHeader><TableHead><TableRow><TableCell sx={{ fontSize: '0.65rem', fontWeight: 'bold' }}>Data</TableCell><TableCell sx={{ fontSize: '0.65rem', fontWeight: 'bold' }}>Mudança</TableCell><TableCell sx={{ fontSize: '0.65rem', fontWeight: 'bold' }}>Obs</TableCell></TableRow></TableHead><TableBody>{historicoStatus.map((h) => (<TableRow key={h.status_id}><TableCell sx={{ fontSize: '0.65rem' }}>{new Date(h.data_alteracao).toLocaleDateString('pt-BR')}</TableCell><TableCell><Chip label={`${h.status_anterior} ➔ ${h.status_novo}`} size="small" sx={{ fontSize: '0.6rem', height: 16 }} /></TableCell><TableCell sx={{ fontSize: '0.65rem' }}>{h.observacao || "-"}</TableCell></TableRow>))}</TableBody></Table></TableContainer>
-              </Paper>
-            </>
+          {/* SEÇÃO 3: FILIAÇÕES */}
+          <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
+            <Stack direction="row" justifyContent="space-between" mb={1.5}>
+              <Stack direction="row" spacing={1} alignItems="center"><CorporateFareIcon color="primary" fontSize="small" /><Typography variant="caption" fontWeight="bold" color="primary">FILIAÇÕES EM CLUBES / FEDERAÇÕES</Typography></Stack>
+              <Button size="small" startIcon={<AddIcon />} onClick={() => setModalEntidadeAberto(true)} disabled={isNovo}>Vincular</Button>
+            </Stack>
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+              {entidadesVinculadas.map((v) => (
+                <Tooltip key={v.id} title={`Nº Registro: ${v.numero_socio}`}>
+                  <Paper variant="outlined" sx={{ px: 1, py: 0.5, bgcolor: '#f8f9fa', display: 'flex', alignItems: 'center', gap: 1, border: '1px solid #e0e0e0' }}>
+                    <Avatar src={v.entidades?.logo_url} sx={{ width: 20, height: 20 }} />
+                    <Typography variant="caption" fontWeight="bold">{v.entidades?.sigla || v.entidades?.nome}</Typography>
+                    <IconButton size="small" color="error" onClick={async () => { if(confirm("Remover filiação?")) { await supabase.from("passaros_entidades").delete().eq("id", v.id); carregarDados(); } }}><DeleteIcon sx={{ fontSize: 14 }} /></IconButton>
+                  </Paper>
+                </Tooltip>
+              ))}
+            </Box>
+          </Paper>
+
+          {/* SEÇÃO 4: TORNEIOS */}
+          {!isNovo && (
+            <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
+              <Stack direction="row" justifyContent="space-between" mb={1.5}>
+                <Stack direction="row" spacing={1} alignItems="center"><EmojiEventsIcon color="primary" fontSize="small" /><Typography variant="caption" fontWeight="bold" color="primary">HISTÓRICO DE TORNEIOS</Typography></Stack>
+                <Button size="small" startIcon={<AddIcon />} onClick={() => setModalTorneioAberto(true)}>Novo Registro</Button>
+              </Stack>
+              <TableContainer><Table size="small"><TableBody>
+                {torneios.map((t) => (
+                  <TableRow key={t.id}>
+                    <TableCell sx={{ fontSize: '0.75rem' }}>{new Date(t.data_inicio).toLocaleDateString()}</TableCell>
+                    <TableCell sx={{ fontSize: '0.75rem' }}><b>{t.colocacao}</b> - {t.categoria}</TableCell>
+                    <TableCell sx={{ fontSize: '0.75rem' }} color="text.secondary">{t.entidades?.sigla || 'Geral'}</TableCell>
+                    <TableCell align="right"><IconButton size="small" color="error" onClick={async () => { if(confirm("Excluir?")) { await supabase.from("passaros_torneios").delete().eq("id", t.id); carregarDados(); } }}><DeleteIcon sx={{ fontSize: 14 }} /></IconButton></TableCell>
+                  </TableRow>
+                ))}
+              </TableBody></Table></TableContainer>
+            </Paper>
           )}
 
-          <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end', pb: 5 }}>
+          {/* SEÇÃO 5: MÍDIAS */}
+          {!isNovo && (
+            <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
+                <Typography variant="caption" fontWeight="bold" color="primary">MÍDIAS (FOTOS E VÍDEOS)</Typography>
+                <Button startIcon={<CloudUploadIcon />} size="small" variant="contained" onClick={() => setModalMidiaAberto(true)}>Adicionar</Button>
+              </Box>
+              <Box sx={{ display: 'flex', gap: 2, overflowX: 'auto', pb: 1 }}>
+                {midias.map((m) => (
+                  <Paper key={m.id} variant="outlined" sx={{ minWidth: 100, p: 0.5, textAlign: 'center' }}>
+                    {m.tipo === 'foto' ? <img src={m.url} width="80" height="60" style={{ objectFit: 'cover', borderRadius: 4 }} /> : <VideoLibraryIcon color="action" sx={{ fontSize: 40 }} />}
+                    <Box sx={{ display: 'flex', justifyContent: 'center', mt: 0.5 }}>
+                      <IconButton size="small" onClick={() => window.open(m.url, '_blank')} color="primary"><VisibilityIcon sx={{ fontSize: 16 }} /></IconButton>
+                      <IconButton size="small" color="error" onClick={async () => { if(confirm("Excluir?")) { await supabase.from("passaros_midia").delete().eq("id", m.id); carregarDados(); } }}><DeleteIcon sx={{ fontSize: 16 }} /></IconButton>
+                    </Box>
+                  </Paper>
+                ))}
+              </Box>
+            </Paper>
+          )}
+
+          {/* SEÇÃO 6: HISTÓRICO STATUS */}
+          {!isNovo && (
+            <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
+              <Typography variant="caption" fontWeight="bold" color="primary" sx={{ display: 'block', mb: 1 }}>HISTÓRICO DE STATUS</Typography>
+              <TableContainer sx={{ maxHeight: 150 }}><Table size="small" stickyHeader><TableBody>
+                {historicoStatus.map((h: any) => (
+                  <TableRow key={h.id}>
+                    <TableCell sx={{ fontSize: '0.7rem' }}>{new Date(h.data_alteracao).toLocaleString()}</TableCell>
+                    <TableCell sx={{ fontSize: '0.7rem', fontWeight: 'bold' }}>{h.status_novo}</TableCell>
+                    <TableCell sx={{ fontSize: '0.7rem' }}>{h.observacao || "-"}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody></Table></TableContainer>
+            </Paper>
+          )}
+
+          <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end', py: 2 }}>
             <Button variant="outlined" onClick={() => router.push("/inicial_page/passaros")}>Cancelar</Button>
-            <Button variant="contained" startIcon={<SaveIcon />} onClick={handleSalvar}>Salvar Registro</Button>
+            <Button variant="contained" startIcon={<SaveIcon />} onClick={handleSalvarPassaro} disabled={salvando}>Salvar Pássaro</Button>
           </Box>
         </Box>
 
-        {/* Lado Direito: Barra Lateral Sticky */}
-        <Box sx={{ position: 'sticky', top: 10, display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <Paper variant="outlined" sx={{ p: 1, textAlign: 'center', bgcolor: '#f9f9f9' }}>
-            <CrachaPassaro form={form} />
-          </Paper>
-
-          {/* 🔹 BOTÃO IMPRIMIR PEDIGREE */}
-          <Button 
-            variant="contained" 
-            fullWidth 
-            color="secondary" 
-            startIcon={<PrintIcon />} 
-            onClick={abrirPedigree}
-            disabled={isNovo}
-            sx={{ 
-              fontWeight: 'bold', 
-              height: 45,
-              boxShadow: '0 4px 10px rgba(0,0,0,0.1)'
-            }}
-          >
-            Imprimir Pedigree
-          </Button>
-
-          <Button
-              variant="outlined"
-              fullWidth
-              startIcon={<AccountTreeIcon />}
-              // Alterado de 'id' para 'idUrl' e adicionado check de 'isNovo'
-              onClick={() => router.push(`/inicial_page/passaros/${idUrl}/genealogia-visual`)}
-              disabled={isNovo} 
-              sx={{
-                mt: 2,
-                fontWeight: 'bold',
-                color: isNovo ? 'text.disabled' : '#1565C0',
-                borderColor: isNovo ? 'divider' : '#1565C0',
-                '&:hover': {
-                  borderWidth: 2,
-                  bgcolor: 'rgba(21, 101, 192, 0.04)'
-                }
-              }}
-            >
-              Editor de Genealogia Visual
-            </Button>
-          
-          {isNovo && (
-            <Typography variant="caption" color="textSecondary" textAlign="center">
-              * Salve para habilitar o Pedigree
-            </Typography>
-          )}
+        <Box sx={{ position: 'sticky', top: 10 }}>
+          <Paper variant="outlined" sx={{ p: 1, textAlign: 'center', bgcolor: '#f9f9f9' }}><CrachaPassaro form={form} /></Paper>
+          <Button variant="contained" fullWidth color="secondary" startIcon={<PrintIcon />} sx={{ mt: 2 }} disabled={isNovo}>Pedigree</Button>
+          <Button variant="outlined" fullWidth startIcon={<AccountTreeIcon />} sx={{ mt: 1 }} disabled={isNovo} onClick={() => router.push(`/inicial_page/passaros/${idUrl}/genealogia-visual`)}>Genealogia</Button>
         </Box>
       </Box>
 
-      {/* MODAIS (Mídia, Status, Visualizador) */}
+      {/* MODAL MÍDIA, TORNEIO E ENTIDADE */}
       <Dialog open={modalMidiaAberto} onClose={() => setModalMidiaAberto(false)}>
         <DialogTitle>Nova Mídia</DialogTitle>
-        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
-          <FormControl fullWidth size="small"><InputLabel>Tipo</InputLabel><Select value={tipoMidia} label="Tipo" onChange={(e) => setTipoMidia(e.target.value)}><MenuItem value="foto">Foto</MenuItem><MenuItem value="video">Vídeo</MenuItem><MenuItem value="audio">Áudio</MenuItem></Select></FormControl>
-          <Button variant="outlined" component="label" startIcon={<CloudUploadIcon />}>{arquivo ? arquivo.name : "Selecionar"}<input type="file" hidden onChange={(e) => setArquivo(e.target.files?.[0] || null)} /></Button>
-        </DialogContent>
-        <DialogActions><Button onClick={() => setModalMidiaAberto(false)}>Fechar</Button><Button variant="contained" onClick={handleUploadMidia}>Upload</Button></DialogActions>
+        <DialogContent><Stack spacing={2} sx={{ mt: 1 }}>
+          <Select value={tipoMidia} onChange={(e) => setTipoMidia(e.target.value as string)} size="small">
+            <MenuItem value="foto">Foto</MenuItem><MenuItem value="video">Vídeo</MenuItem>
+          </Select>
+          <Button variant="outlined" component="label" fullWidth>Selecionar Arquivo<input type="file" hidden onChange={(e: any) => setArquivo(e.target.files?.[0])} /></Button>
+        </Stack></DialogContent>
+        <DialogActions><Button onClick={() => setModalMidiaAberto(false)}>Sair</Button><Button variant="contained" onClick={handleUploadMidia} disabled={!arquivo}>Enviar</Button></DialogActions>
       </Dialog>
 
-      <Dialog open={!!mediaView} onClose={() => setMediaView(null)} maxWidth="md" fullWidth>
-        <DialogContent sx={{ bgcolor: '#000', p: 0, display: 'flex', justifyContent: 'center', alignItems:'center', minHeight: '300px' }}>
-          {mediaView && (
-            mediaView.tipo === 'foto' ? <img src={mediaView.url} style={{ maxWidth: '100%', maxHeight: '80vh', objectFit: 'contain' }} /> :
-            mediaView.tipo === 'video' ? <video src={mediaView.url} controls autoPlay style={{ width: '100%' }} /> :
-            mediaView.tipo === 'audio' ? <Box p={5} textAlign="center"><GraphicEqIcon sx={{ fontSize: 80, color: '#fff', mb: 2 }} /><audio src={mediaView.url} controls autoPlay style={{ width: '100%' }} /></Box> :
-            <Box p={5} textAlign="center" sx={{color:'#fff'}}><PictureAsPdfIcon sx={{fontSize:80}}/><Typography>Documento PDF</Typography><Button variant="contained" sx={{mt:2}} onClick={() => window.open(mediaView.url, '_blank')}>Abrir</Button></Box>
-          )}
-        </DialogContent>
-        <DialogActions sx={{ bgcolor: '#000' }}><Button onClick={() => setMediaView(null)} sx={{ color: '#fff' }}>Fechar</Button></DialogActions>
+      <Dialog open={modalTorneioAberto} onClose={() => setModalTorneioAberto(false)}>
+        <DialogTitle>Registrar Torneio</DialogTitle>
+        <DialogContent><Stack spacing={2} sx={{ mt: 1 }}>
+          <TextField type="date" label="Data" fullWidth size="small" InputLabelProps={{ shrink: true }} onChange={(e) => setNovoTorneio({...novoTorneio, data_inicio: e.target.value})} />
+          <FormControl fullWidth size="small"><InputLabel>Organizador</InputLabel><Select label="Organizador" value={novoTorneio.entidade_id} onChange={(e) => setNovoTorneio({...novoTorneio, entidade_id: e.target.value})}>{todasEntidades.map(ent => <MenuItem key={ent.id} value={ent.id}>{ent.nome}</MenuItem>)}</Select></FormControl>
+          <TextField label="Categoria" fullWidth size="small" onChange={(e) => setNovoTorneio({...novoTorneio, categoria: e.target.value})} /><TextField label="Colocação" fullWidth size="small" onChange={(e) => setNovoTorneio({...novoTorneio, colocacao: e.target.value})} />
+        </Stack></DialogContent>
+        <DialogActions><Button onClick={() => setModalTorneioAberto(false)}>Sair</Button><Button variant="contained" onClick={handleAddTorneio}>Gravar</Button></DialogActions>
       </Dialog>
 
-      <Dialog open={modalStatusAberto} onClose={() => setModalStatusAberto(false)} fullWidth maxWidth="xs">
-        <DialogTitle sx={{ fontWeight: 'bold' }}>Alterar Status</DialogTitle>
-        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
-          <TextField type="date" label="Data" fullWidth size="small" value={dataOcorrencia} onChange={(e) => setDataOcorrencia(e.target.value)} InputLabelProps={{ shrink: true }} />
-          <TextField label="Observação" fullWidth multiline rows={2} size="small" value={obsStatus} onChange={(e) => setObsStatus(e.target.value)} />
-        </DialogContent>
-        <DialogActions><Button onClick={() => setModalStatusAberto(false)}>Sair</Button><Button variant="contained" onClick={confirmarMudancaStatus}>Gravar</Button></DialogActions>
+      <Dialog open={modalEntidadeAberto} onClose={() => setModalEntidadeAberto(false)}>
+        <DialogTitle>Vincular a Clube</DialogTitle>
+        <DialogContent><Stack spacing={2} sx={{ mt: 1 }}>
+          <FormControl fullWidth size="small"><InputLabel>Entidade</InputLabel><Select label="Entidade" value={novoVinculo.entidade_id} onChange={(e) => setNovoVinculo({...novoVinculo, entidade_id: e.target.value as string})}>{todasEntidades.map(ent => <MenuItem key={ent.id} value={ent.id}>{ent.nome} ({ent.sigla})</MenuItem>)}</Select></FormControl>
+          <TextField label="Nº Registro" fullWidth size="small" onChange={(e) => setNovoVinculo({...novoVinculo, numero_socio: e.target.value})} />
+        </Stack></DialogContent>
+        <DialogActions><Button onClick={() => setModalEntidadeAberto(false)}>Sair</Button><Button variant="contained" onClick={handleAddEntidade}>Confirmar</Button></DialogActions>
       </Dialog>
     </Container>
   );
