@@ -27,6 +27,7 @@ import { useEmpresa } from "../context/empresaContext";
 import { supabase } from "../lib/supabaseClient";
 import ShoppingCartIcon from "@mui/icons-material/ShoppingCart"; // Novo ícone
 import InventoryIcon from "@mui/icons-material/Inventory"; // Novo ícone para estoque
+import MedicalServicesIcon from "@mui/icons-material/MedicalServices";
 
 export default function InicialLayout({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
@@ -36,6 +37,7 @@ export default function InicialLayout({ children }: { children: React.ReactNode 
   const router = useRouter();
   const pathname = usePathname();
   const [openAnilhas, setOpenAnilhas] = useState(false); // Novo estado para o submenu de anilhas
+  const [openMedicamentos, setOpenMedicamentos] = useState(false);
 
   useEffect(() => {
     if (!usuarioLogado) {
@@ -188,6 +190,7 @@ export default function InicialLayout({ children }: { children: React.ReactNode 
             </List>
           </Collapse>
 
+
          {/* 🔹 Anilhas */}
           <ListItemButton
             selected={pathname === "/inicial_page/anilhas"}
@@ -198,6 +201,37 @@ export default function InicialLayout({ children }: { children: React.ReactNode 
             </ListItemIcon>
             <ListItemText primary="Anilhas" />
           </ListItemButton>
+
+         {/* 🔹 Item Único: Medicamentos */}
+          <ListItemButton
+            selected={pathname.startsWith("/inicial_page/medicamentos")}
+            onClick={() => goTo("/inicial_page/medicamentos")}
+            sx={{
+              borderRadius: 2,
+              mb: 0.5,
+              // Estilo de seleção para combinar com seu padrão de Pássaros
+              "&.Mui-selected": {
+                bgcolor: "rgba(255, 255, 255, 0.2)",
+              },
+              "&:hover": {
+                bgcolor: "rgba(255, 255, 255, 0.1)",
+              }
+            }}
+          >
+            <ListItemIcon>
+              <MedicalServicesIcon sx={{ color: "#fff" }} />
+            </ListItemIcon>
+            <ListItemText 
+              primary="Medicamentos" 
+              primaryTypographyProps={{ 
+                sx: { 
+                  color: "#fff", 
+                  fontWeight: pathname.startsWith("/inicial_page/medicamentos") ? "900" : "400" 
+                } 
+              }} 
+            />
+          </ListItemButton>
+                  
 
           {/* 🔹 Logout */}
           <ListItemButton onClick={handleLogout}>

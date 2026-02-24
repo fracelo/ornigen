@@ -33,8 +33,14 @@ export default function HomePage() {
       if (!empresaId) return;
       try {
         const [resP, resEmp] = await Promise.all([
-          supabase.from("passaros").select("sexo, data_nascimento, status, eh_reprodutor").eq("empresa_id", empresaId),
-          supabase.from("empresas").select("*, planos(*)").eq("id", empresaId).single()
+          // Buscamos apenas os campos necessários para o cálculo
+          supabase.from("passaros")
+            .select("sexo, data_nascimento, status, reprodutor")
+            .eq("empresa_id", empresaId),
+          supabase.from("empresas")
+            .select("*, planos(*)")
+            .eq("id", empresaId)
+            .single()
         ]);
 
         const passaros = resP.data || [];
@@ -46,14 +52,27 @@ export default function HomePage() {
 
         const stats = passaros.reduce((acc, p) => {
           const dataNasc = new Date(p.data_nascimento);
-          if (p.status === "Reservado") acc.reservas++;
           
-          if (dataNasc > umAnoAtras) {
-            acc.filhotes++;
-          } else if (p.eh_reprodutor) {
-            if (p.sexo === "M") acc.machos++;
-            else if (p.sexo === "F") acc.femeas++;
+          // Filtro Global: Somente pássaros com status "Ativo" entram na contagem de reprodutores e filhotes
+          if (p.status === "Ativo") {
+            
+            // 1. Contagem de Reprodutores Ativos
+            if (p.reprodutor === true) {
+              if (p.sexo === "M") acc.machos++;
+              else if (p.sexo === "F") acc.femeas++;
+            }
+
+            // 2. Contagem de Filhotes Ativos (Nascidos nos últimos 12 meses)
+            if (dataNasc > umAnoAtras) {
+              acc.filhotes++;
+            }
           }
+
+          // 3. Contagem de Reservas (Status independente de estar Ativo)
+          if (p.status === "Reservado") {
+            acc.reservas++;
+          }
+
           return acc;
         }, { machos: 0, femeas: 0, filhotes: 0, reservas: 0 });
 
@@ -70,7 +89,7 @@ export default function HomePage() {
           }
         });
       } catch (err) {
-        console.error(err);
+        console.error("Erro na Dashboard:", err);
       } finally {
         setLoading(false);
       }
@@ -110,7 +129,7 @@ export default function HomePage() {
         </Paper>
       </Box>
 
-      {/* GRID DE CARDS USANDO BOX + DISPLAY GRID */}
+      {/* GRID DE CARDS: INDICADORES ATIVOS */}
       <Box sx={{ 
         display: 'grid', 
         gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: '1fr 1fr 1fr 1fr' }, 
@@ -121,7 +140,7 @@ export default function HomePage() {
           <CardContent>
             <MaleIcon color="primary" sx={{ fontSize: 40 }} />
             <Typography variant="h4" sx={{ fontWeight: 'bold' }}>{dados.stats.machos}</Typography>
-            <Typography variant="body2" color="text.secondary">Reprodutores</Typography>
+            <Typography variant="body2" color="text.secondary">Reprodutores (Ativos)</Typography>
           </CardContent>
         </Card>
 
@@ -129,7 +148,7 @@ export default function HomePage() {
           <CardContent>
             <FemaleIcon sx={{ fontSize: 40, color: '#d81b60' }} />
             <Typography variant="h4" sx={{ fontWeight: 'bold' }}>{dados.stats.femeas}</Typography>
-            <Typography variant="body2" color="text.secondary">Reprodutoras</Typography>
+            <Typography variant="body2" color="text.secondary">Reprodutoras (Ativas)</Typography>
           </CardContent>
         </Card>
 
@@ -137,7 +156,7 @@ export default function HomePage() {
           <CardContent>
             <ChildCareIcon sx={{ fontSize: 40, color: '#ef6c00' }} />
             <Typography variant="h4" sx={{ fontWeight: 'bold' }}>{dados.stats.filhotes}</Typography>
-            <Typography variant="body2" color="text.secondary">Filhotes</Typography>
+            <Typography variant="body2" color="text.secondary">Filhotes (Ativos)</Typography>
           </CardContent>
         </Card>
 
