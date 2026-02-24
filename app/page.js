@@ -1,20 +1,28 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/lib/supabaseClient"; 
 import TabelaPlanos from "@/components/TabelaPlanos"; 
 
-import { Box, Container, Typography, AppBar, Toolbar, Button, Stack, Paper } from "@mui/material";
-import FlutterDashIcon from "@mui/icons-material/FlutterDash";
+import { Box, Container, Typography, AppBar, Toolbar, Button, Stack, Paper, IconButton } from "@mui/material";
+import ArrowBackIosNewIcon from "@mui/icons-material/ArrowBackIosNew";
+import ArrowForwardIosIcon from "@mui/icons-material/ArrowForwardIos";
 import { useRouter } from "next/navigation";
 
-// --- 1. COMPONENTE DO CARROSSEL DINÂMICO (QUADRADO) ---
+// --- 1. COMPONENTE DO CARROSSEL PROFISSIONAL ---
 function CarrosselTelas() {
-  // Nomes dos arquivos conforme você salvou no bucket 'telas'
+  const scrollRef = useRef(null);
   const nomesImagens = ["1.png", "2.png", "3.png", "4.png"]; 
-  
-  // URL Base Direta do seu projeto Supabase
   const urlBase = "https://aqviniyxfnctuuaysava.supabase.co/storage/v1/object/public/telas/";
+
+  // Função para rolar para os lados
+  const scroll = (direction) => {
+    if (scrollRef.current) {
+      const { scrollLeft, clientWidth } = scrollRef.current;
+      const scrollTo = direction === "left" ? scrollLeft - clientWidth : scrollLeft + clientWidth;
+      scrollRef.current.scrollTo({ left: scrollTo, behavior: "smooth" });
+    }
+  };
 
   return (
     <Box sx={{ py: 10, bgcolor: "#f8faff", borderTop: '1px solid #eee' }}>
@@ -23,49 +31,83 @@ function CarrosselTelas() {
           Conheça o OrniGen por dentro
         </Typography>
 
-        <Box sx={{ 
-          display: 'flex', 
-          overflowX: 'auto', 
-          gap: 3,
-          pb: 4,
-          px: 2,
-          scrollSnapType: 'x mandatory',
-          // Estilização da barra de rolagem horizontal
-          '&::-webkit-scrollbar': { height: '8px' },
-          '&::-webkit-scrollbar-thumb': { bgcolor: '#ccc', borderRadius: '10px' }
-        }}>
-          {nomesImagens.map((nome, index) => (
-            <Box key={index} sx={{ 
-              minWidth: { xs: '280px', sm: '350px', md: '450px' },
-              scrollSnapAlign: 'center'
-            }}>
-              <Paper elevation={4} sx={{ borderRadius: 4, overflow: 'hidden', bgcolor: 'white' }}>
-                <Box 
-                  component="img" 
-                  src={`${urlBase}${nome}`} 
-                  alt={`Funcionalidade ${nome}`}
-                  sx={{ 
-                    width: '100%', 
-                    aspectRatio: '1/1', 
-                    display: 'block',
-                    objectFit: 'cover',
-                    backgroundColor: '#eee' // Fundo cinza enquanto carrega
-                  }}
-                  // Fallback: Se a imagem falhar, mostra um placeholder amigável
-                  onError={(e) => { 
-                    e.target.src = "https://via.placeholder.com/500x500?text=OrniGen+Preview"; 
-                  }}
-                />
-              </Paper>
-            </Box>
-          ))}
+        <Box sx={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+          
+          {/* Botão Esquerda */}
+          <IconButton 
+            onClick={() => scroll("left")}
+            sx={{ 
+              position: 'absolute', left: -20, zIndex: 2, bgcolor: 'white', 
+              boxShadow: 3, '&:hover': { bgcolor: '#f0f0f0' },
+              display: { xs: 'none', md: 'flex' } 
+            }}
+          >
+            <ArrowBackIosNewIcon />
+          </IconButton>
+
+          {/* Container do Scroll */}
+          <Box 
+            ref={scrollRef}
+            sx={{ 
+              display: 'flex', 
+              overflowX: 'hidden', // Esconde a barra feia
+              gap: 0, // Sem espaço entre elas para o snap funcionar 1 por 1
+              scrollSnapType: 'x mandatory',
+              width: '100%',
+              pb: 2
+            }}
+          >
+            {nomesImagens.map((nome, index) => (
+              <Box key={index} sx={{ 
+                minWidth: '100%', // Cada imagem ocupa a tela toda do container
+                scrollSnapAlign: 'center',
+                px: { xs: 1, md: 10 } // Espaçamento lateral para a imagem não colar nas bordas
+              }}>
+                <Paper elevation={6} sx={{ borderRadius: 4, overflow: 'hidden', bgcolor: 'white' }}>
+                  <Box 
+                    component="img" 
+                    src={`${urlBase}${nome}`} 
+                    alt={`Tela ${nome}`}
+                    sx={{ 
+                      width: '100%', 
+                      aspectRatio: '1/1', 
+                      display: 'block',
+                      objectFit: 'contain', // "Contain" garante que a tela do sistema apareça inteira sem cortes
+                      bgcolor: '#fafafa'
+                    }}
+                    onError={(e) => { 
+                      e.target.onerror = null;
+                      e.target.src = "https://images.unsplash.com/photo-1444464666168-49d633b867ad?w=500&h=500&fit=crop"; 
+                    }}
+                  />
+                </Paper>
+              </Box>
+            ))}
+          </Box>
+
+          {/* Botão Direita */}
+          <IconButton 
+            onClick={() => scroll("right")}
+            sx={{ 
+              position: 'absolute', right: -20, zIndex: 2, bgcolor: 'white', 
+              boxShadow: 3, '&:hover': { bgcolor: '#f0f0f0' },
+              display: { xs: 'none', md: 'flex' } 
+            }}
+          >
+            <ArrowForwardIosIcon />
+          </IconButton>
         </Box>
+
+        {/* Indicador visual de toque para Mobile */}
+        <Typography variant="caption" sx={{ display: { xs: 'block', md: 'none' }, textAlign: 'center', mt: 2, color: 'text.secondary' }}>
+          Arraste para o lado para ver mais →
+        </Typography>
       </Container>
     </Box>
   );
 }
 
-// --- 2. PÁGINA PRINCIPAL (LANDING PAGE) ---
+// --- 2. PÁGINA PRINCIPAL ---
 export default function LandingPage() {
   const router = useRouter();
   const [planos, setPlanos] = useState([]);
@@ -88,92 +130,56 @@ export default function LandingPage() {
   return (
     <Box sx={{ bgcolor: "#fdfdfd", minHeight: "100vh" }}>
       
-      {/* Navbar Fixa */}
+      {/* Navbar */}
       <AppBar position="fixed" sx={{ bgcolor: "white", color: "text.primary", boxShadow: "0px 2px 10px rgba(0,0,0,0.05)" }}>
         <Container maxWidth="lg">
-          <Toolbar sx={{ justifyContent: "space-between", px: "0 !important" }}>
-            <Box 
-              sx={{ display: 'flex', alignItems: 'center', gap: 1, cursor: 'pointer' }}
-              onClick={() => router.push("/")}
-            >
-              <FlutterDashIcon sx={{ color: "primary.main", fontSize: 32 }} />
-              <Typography variant="h5" sx={{ fontWeight: "800", color: "primary.main", letterSpacing: -1 }}>
-                OrniGen
-              </Typography>
+          <Toolbar sx={{ justifyContent: "space-between", px: "0 !important", height: 80 }}>
+            <Box sx={{ cursor: 'pointer' }} onClick={() => router.push("/")}>
+              <Box component="img" src="/logo-ornigen.png" alt="OrniGen Logo" sx={{ height: 45, width: 'auto' }} />
             </Box>
-            
             <Stack direction="row" spacing={1}>
               <Button onClick={() => router.push("/login")} sx={{ fontWeight: 'bold' }}>Entrar</Button>
-              <Button 
-                variant="contained" 
-                onClick={() => router.push("/register")}
-                sx={{ fontWeight: 'bold', borderRadius: 2, textTransform: 'none' }}
-              >
-                Registrar
+              <Button variant="contained" onClick={() => router.push("/register")} sx={{ fontWeight: 'bold', borderRadius: 2, textTransform: 'none' }}>
+                Registrar Criadouro
               </Button>
             </Stack>
           </Toolbar>
         </Container>
       </AppBar>
 
-      {/* Hero Section */}
+      {/* Hero */}
       <Box sx={{ 
-        pt: { xs: 15, md: 22 }, 
-        pb: { xs: 10, md: 18 }, 
-        textAlign: 'center', 
-        background: "linear-gradient(135deg, #1976d2 0%, #0d47a1 100%)",
-        color: "white",
+        pt: { xs: 15, md: 22 }, pb: { xs: 10, md: 18 }, textAlign: 'center', 
+        background: "linear-gradient(135deg, #1976d2 0%, #0d47a1 100%)", color: "white",
         clipPath: "ellipse(150% 100% at 50% 0%)"
       }}>
         <Container maxWidth="md">
-          <Typography variant="h2" sx={{ fontWeight: "900", mb: 2, fontSize: { xs: '2.5rem', md: '4.5rem' }, lineHeight: 1.1 }}>
-            Voe Alto na Gestão do seu Criadouro
+          <Box component="img" src="/logo-ornigen.png" alt="OrniGen Logo" sx={{ height: { xs: 80, md: 120 }, mb: 4, filter: 'brightness(0) invert(1)' }} />
+          <Typography variant="h2" sx={{ fontWeight: "900", mb: 2, fontSize: { xs: '2.5rem', md: '4rem' } }}>
+            Gestão de Elite para o seu Criadouro
           </Typography>
-          <Typography variant="h5" sx={{ opacity: 0.9, mb: 5, fontWeight: 300, maxWidth: "700px", mx: "auto" }}>
-            Controle genético e comercial com a simplicidade que você sempre quis. Tecnologia de ponta para criadores de elite.
+          <Typography variant="h5" sx={{ opacity: 0.9, mb: 5, fontWeight: 300 }}>
+            A tecnologia a serviço da ornitologia profissional.
           </Typography>
-          <Button 
-            variant="contained" 
-            color="secondary" 
-            size="large"
-            sx={{ px: 6, py: 2, fontWeight: 'bold', borderRadius: 3, fontSize: '1.2rem', textTransform: 'none' }}
-            onClick={() => router.push("/register")}
-          >
-            Começar Agora Grátis
+          <Button variant="contained" color="secondary" size="large" sx={{ px: 6, py: 2, borderRadius: 3, fontWeight: 'bold' }} onClick={() => router.push("/register")}>
+            Começar Agora
           </Button>
         </Container>
       </Box>
 
-      {/* Seção de Planos */}
+      {/* Planos */}
       <Container sx={{ py: 12 }}>
-        <Box sx={{ textAlign: 'center', mb: 8 }}>
-          <Typography variant="h3" sx={{ fontWeight: 'bold', mb: 2 }}>Planos e Assinaturas</Typography>
-          <Typography variant="body1" color="text.secondary">
-            Transparência para o seu crescimento.
-          </Typography>
-        </Box>
-        
-        <TabelaPlanos 
-          planos={planos} 
-          isPublic={true} 
-          onSelecionar={() => router.push("/register")} 
-        />
+        <TabelaPlanos planos={planos} isPublic={true} onSelecionar={() => router.push("/register")} />
       </Container>
 
-      {/* Seção do Carrossel de Imagens Quadradas */}
+      {/* Carrossel */}
       <CarrosselTelas />
 
       {/* Footer */}
       <Box sx={{ py: 8, textAlign: 'center', bgcolor: 'white', borderTop: '1px solid #eee' }}>
-        <Stack direction="row" justifyContent="center" alignItems="center" spacing={1} mb={2}>
-          <FlutterDashIcon sx={{ color: "text.disabled" }} />
-          <Typography variant="h6" sx={{ fontWeight: "bold", color: "text.disabled" }}>OrniGen</Typography>
-        </Stack>
-        <Typography variant="body2" color="text.secondary">
-          © 2026 OrniGen - Tecnologia para Criadouros de Elite.
-        </Typography>
+        <Box component="img" src="/logo-ornigen.png" alt="OrniGen Logo" sx={{ height: 35, mb: 2, opacity: 0.5, filter: 'grayscale(1)' }} />
+        <Typography variant="body2" color="text.secondary">© 2026 OrniGen - Tecnologia para Criadouros.</Typography>
       </Box>
-
     </Box>
   );
 }
