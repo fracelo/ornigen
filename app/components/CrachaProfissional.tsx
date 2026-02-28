@@ -1,169 +1,182 @@
 "use client";
 
-import React from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
+import { supabase } from "@/lib/supabaseClient";
+import { formataDados } from "@/lib/formataDados"; // Importando sua lib
 
 interface CrachaProps {
-  passaro: {
-    id: string;
-    nome: string; 
-    anilha: string;
-    especie: string;
-    sexo: string;
-    nascimento: string;
-    pai_nome?: string;
-    mae_nome?: string;
-  };
-  empresa: {
-    nome_fantasia: string;
-    cidade: string;
-    uf: string;
-    telefone1?: string;
-    telefone2?: string;
-    logo_url?: string;
-  };
+  passaroId: string | number;
+  empresaId: string;
 }
 
-export const CrachaProfissional: React.FC<CrachaProps> = ({ passaro, empresa }) => {
+export const CrachaProfissional: React.FC<CrachaProps> = ({ passaroId, empresaId }) => {
+  const [dados, setDados] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  const carregarDadosCompletos = useCallback(async () => {
+    if (!passaroId || !empresaId) return;
+    setLoading(true);
+    try {
+      // 1. QUERY COMPLETA (Até 4ª Geração)
+      const { data: passaro, error } = await supabase
+        .from("passaros")
+        .select(`
+          *,
+          especies_sispass ( nomes_comuns ),
+          pai:pai_id ( 
+            nome, anilha, sexo,
+            pai:pai_id ( nome, anilha, sexo, pai:pai_id ( nome, anilha, sexo ), mae:mae_id ( nome, anilha, sexo ) ), 
+            mae:mae_id ( nome, anilha, sexo, pai:pai_id ( nome, anilha, sexo ), mae:mae_id ( nome, anilha, sexo ) ) 
+          ),
+          mae:mae_id ( 
+            nome, anilha, sexo,
+            pai:pai_id ( nome, anilha, sexo, pai:pai_id ( nome, anilha, sexo ), mae:mae_id ( nome, anilha, sexo ) ), 
+            mae:mae_id ( nome, anilha, sexo, pai:pai_id ( nome, anilha, sexo ), mae:mae_id ( nome, anilha, sexo ) ) 
+          )
+        `)
+        .eq("id", passaroId)
+        .single();
+
+      if (error) throw error;
+
+      // 2. BUSCA EMPRESA
+      const { data: empresa } = await supabase
+        .from("empresas")
+        .select(`nome_fantasia, cidade, estado, telefone1, telefone2, logo_url`)
+        .eq("id", empresaId)
+        .single();
+
+      setDados({ passaro, empresa });
+    } catch (err) {
+      console.error("Erro ao carregar árvore:", err);
+    } finally {
+      setLoading(false);
+    }
+  }, [passaroId, empresaId]);
+
+  useEffect(() => { carregarDadosCompletos(); }, [carregarDadosCompletos]);
+
+  if (loading || !dados) return <div className="w-[160mm] h-[50mm] flex items-center justify-center border border-gray-200 text-[7pt] uppercase">Carregando Genealogia...</div>;
+
+  const { passaro, empresa } = dados;
   const machoStyle = "bg-[#004080] text-white";
   const femeaStyle = "bg-[#c2185b] text-white";
-  const azulEscuro = "#001f3f";
+  const dataFormatada = passaro.data_nascimento ? passaro.data_nascimento.split('-').reverse().join('/') : "---";
+  
+  const P = passaro.pai;
+  const M = passaro.mae;
+
+  // Função auxiliar para renderizar células do 4º nível com cor dinâmica
+  const Celula4G = ({ animal, fallbackSex }: { animal: any, fallbackSex: 'M' | 'F' }) => {
+    const isFemea = animal?.sexo === 'F' || fallbackSex === 'F';
+    return (
+      <div className={`${isFemea ? femeaStyle : machoStyle} text-[2.8pt] text-center leading-none truncate px-[0.2mm] py-[0.3mm] rounded-[0.5px] h-[2.8mm] flex items-center justify-center mb-[0.2mm]`}>
+        {animal?.nome || animal?.anilha || (isFemea ? "♀" : "♂")}
+      </div>
+    );
+  };
 
   return (
-    <div className="flex w-[160mm] h-[50mm] bg-white text-black overflow-hidden print:m-0 border border-gray-300 shadow-sm">
+    <div className="flex w-[160mm] h-[50mm] bg-white text-black overflow-hidden border border-gray-300 font-sans uppercase print:m-0 break-inside-avoid">
       
-      {/* --- FRENTE (80mm) --- */}
+      {/* --- FRENTE --- */}
       <div className="flex w-[80mm] h-full border-r border-dashed border-gray-400">
-        
-        {/* Lado Esquerdo: Identificação do Criatório (30mm) */}
-        <div className="w-[30mm] h-full flex flex-col items-center justify-between py-2 border-r border-gray-100 bg-gray-50">
-          <div className="flex flex-col items-center w-full px-1">
-            <div className="w-[22mm] h-[22mm] mb-1 flex items-center justify-center bg-white border border-gray-200 rounded-xs overflow-hidden p-0.5">
-              {empresa.logo_url ? (
-                <img src={empresa.logo_url} alt="Logo" className="max-w-full max-h-full object-contain" />
-              ) : (
-                <div className="text-[6pt] text-gray-400 font-bold uppercase">Logo</div>
-              )}
-            </div>
-            <span className="text-[7pt] font-black text-blue-900 text-center uppercase leading-tight px-1">
-              {empresa.nome_fantasia}
-            </span>
+        <div className="w-[30mm] h-full flex flex-col items-center justify-between pt-4 pb-2 border-r border-gray-100 bg-gray-50">
+          <div className="w-[26mm] h-[26mm] flex items-center justify-center bg-white border border-gray-200 p-1">
+            {empresa?.logo_url ? <img src={empresa.logo_url} className="max-w-full max-h-full object-contain" /> : <div className="text-[5pt] text-gray-300">LOGO</div>}
           </div>
-
-          {/* Telefones Centralizados por linha e Localização */}
           <div className="text-center w-full px-1">
-            <p className="text-[5.5pt] font-bold text-gray-700 leading-none mb-1">{empresa.telefone1}</p>
-            <p className="text-[5.5pt] font-bold text-gray-700 leading-none mb-1.5">{empresa.telefone2}</p>
-            <p className="text-[5.5pt] font-black text-blue-900 uppercase border-t border-gray-200 pt-1">
-              {empresa.cidade} - {empresa.uf}
-            </p>
+            <p className="text-[6pt] font-black text-blue-900 leading-tight truncate mb-0.5">{empresa?.nome_fantasia}</p>
+            <div className="flex flex-col text-[5pt] font-bold text-gray-600 leading-tight">
+              {/* FORMATANDO TELEFONES AQUI */}
+              <span>{formataDados(empresa?.telefone1, "celular")}</span>
+              <span>{formataDados(empresa?.telefone2, "celular")}</span>
+            </div>
+            <p className="text-[5pt] font-black text-blue-900 border-t border-gray-200 mt-1 pt-0.5">{empresa?.cidade} - {empresa?.estado}</p>
           </div>
         </div>
 
-        {/* Lado Direito: Dados do Pássaro (50mm) - Cores Invertidas */}
         <div className="w-[50mm] h-full bg-[#001f3f] p-2 text-white relative flex flex-col">
-          <div className="flex justify-between items-start border-b border-blue-400 pb-1 mb-2">
-            <span className="text-[13pt] font-black tracking-tighter uppercase truncate w-[75%] leading-none">
-              {passaro.nome}
-            </span>
-            <span className="text-[4.5pt] bg-red-600 px-1 rounded font-bold uppercase">Original</span>
+          <div className="border-b border-blue-400 pb-1 mb-2">
+            <span className="text-[11pt] font-black truncate block leading-none">{passaro.nome}</span>
           </div>
-
-          <div className="space-y-1.5">
-            {/* Espécie - Label Branco / Fundo Branco info Azul */}
-            <div className="flex flex-col">
-              <span className="text-[4pt] uppercase font-bold mb-0.5 ml-0.5">Espécie</span>
-              <div className="bg-white rounded-xs px-1 py-0.5">
-                <span className="text-[7.5pt] font-bold text-[#001f3f] leading-none truncate block">
-                  {passaro.especie}
-                </span>
-              </div>
+          <div className="space-y-1">
+            <div className="bg-white rounded-xs px-1.5 py-0.5 flex items-center gap-1 border-l-[3px] border-yellow-400">
+              <span className="text-[5pt] font-bold text-gray-400 min-w-[10mm]">ANILHA:</span>
+              <span className="text-[6.5pt] font-black text-blue-900">{passaro.anilha}</span>
             </div>
-            
-            <div className="grid grid-cols-2 gap-1.5">
-              {/* Sexo */}
-              <div className="flex flex-col">
-                <span className="text-[4pt] uppercase font-bold mb-0.5 ml-0.5">Sexo</span>
-                <div className="bg-white rounded-xs px-1 py-0.5 text-center">
-                  <span className={`text-[7pt] font-black uppercase ${passaro.sexo === 'M' ? 'text-blue-800' : 'text-pink-700'}`}>
-                    {passaro.sexo === 'M' ? 'Macho' : 'Fêmea'}
-                  </span>
-                </div>
-              </div>
-              {/* Nascimento */}
-              <div className="flex flex-col">
-                <span className="text-[4pt] uppercase font-bold mb-0.5 ml-0.5">Nascimento</span>
-                <div className="bg-white rounded-xs px-1 py-0.5 text-center">
-                  <span className="text-[7pt] font-bold text-[#001f3f]">
-                    {passaro.nascimento}
-                  </span>
-                </div>
-              </div>
+            <div className="bg-white rounded-xs px-1.5 py-0.5 flex items-center gap-1 border-l-[3px] border-yellow-400">
+              <span className="text-[5pt] font-bold text-gray-400 min-w-[10mm]">ESPÉCIE:</span>
+              <span className="text-[6pt] font-black text-blue-900 truncate">{passaro.especies_sispass?.nomes_comuns?.[0] || "---"}</span>
             </div>
-
-            {/* Anilha - Destaque Principal */}
-            <div className="flex flex-col pt-1">
-              <span className="text-[4pt] uppercase font-bold mb-0.5 ml-0.5">Anilha de Identificação</span>
-              <div className="bg-white rounded-xs px-1 py-1 text-center border-l-4 border-yellow-500">
-                <span className="text-[11pt] font-black text-[#001f3f] leading-none">
-                  {passaro.anilha}
-                </span>
-              </div>
+            <div className="bg-white rounded-xs px-1.5 py-0.5 flex items-center gap-1 border-l-[3px] border-yellow-400">
+              <span className="text-[5pt] font-bold text-gray-400 min-w-[10mm]">SEXO:</span>
+              <span className={`text-[6pt] font-black ${passaro.sexo === 'M' ? 'text-blue-800' : 'text-pink-700'}`}>{passaro.sexo === 'M' ? 'MACHO' : 'FÊMEA'}</span>
+            </div>
+            <div className="bg-white rounded-xs px-1.5 py-0.5 flex items-center gap-1 border-l-[3px] border-yellow-400">
+              <span className="text-[5pt] font-bold text-gray-400 min-w-[10mm]">NASC:</span>
+              <span className="text-[6pt] font-black text-blue-900">{dataFormatada}</span>
             </div>
           </div>
-
-          <div className="absolute bottom-1 right-1 bg-white p-0.5 rounded-sm">
-            <QRCodeSVG value={passaro.id} size={46} />
+          <div className="absolute bottom-1 right-1 bg-white p-0.5 rounded-xs">
+            <QRCodeSVG value={String(passaro.id)} size={35} />
           </div>
         </div>
       </div>
 
-      {/* --- VERSO: GENEALOGIA --- */}
-      <div className="w-[80mm] h-full bg-white p-1 flex flex-col">
-        <div className="text-center mb-1">
-          <span className="text-[7.5pt] font-black text-blue-900 border-b border-red-600 px-3 uppercase italic">
-            Genealogia Profissional
-          </span>
-        </div>
-
-        <div className="flex-1 flex items-center">
-          <div className="grid grid-cols-4 w-full gap-x-0.5 items-center">
-            {/* 1ª GER */}
-            <div className="flex flex-col gap-8">
-              <div className={`${machoStyle} text-[5.5pt] p-0.5 rounded-sm truncate`}>P: {passaro.pai_nome || '---'}</div>
-              <div className={`${femeaStyle} text-[5.5pt] p-0.5 rounded-sm truncate`}>M: {passaro.mae_nome || '---'}</div>
-            </div>
-            {/* 2ª GER */}
-            <div className="flex flex-col gap-1.5">
-              <div className={`${machoStyle} text-[4.5pt] p-0.5 rounded-xs opacity-90`}>Avô P.</div>
-              <div className={`${femeaStyle} text-[4.5pt] p-0.5 rounded-xs opacity-90`}>Avó P.</div>
-              <div className={`${machoStyle} text-[4.5pt] p-0.5 rounded-xs opacity-90 mt-2`}>Avô M.</div>
-              <div className={`${femeaStyle} text-[4.5pt] p-0.5 rounded-xs opacity-90`}>Avó M.</div>
-            </div>
-            {/* 3ª GER */}
-            <div className="flex flex-col gap-0.5">
-              {[1, 3, 5, 7].map(n => (
-                <React.Fragment key={n}>
-                  <div className={`${machoStyle} text-[3.5pt] px-0.5 opacity-80`}>Bis {n}</div>
-                  <div className={`${femeaStyle} text-[3.5pt] px-0.5 opacity-80 ${n < 7 ? 'mb-0.5' : ''}`}>Bis {n+1}</div>
-                </React.Fragment>
-              ))}
-            </div>
-            {/* 4ª GER */}
-            <div className="flex flex-col gap-0">
-              {Array.from({ length: 16 }).map((_, i) => (
-                <div key={i} className={`${i % 2 === 0 ? machoStyle : femeaStyle} text-[2.8pt] px-0.5 border-b border-white/10 scale-95`}>Tri {i + 1}</div>
-              ))}
-            </div>
+      {/* --- VERSO (GENEALOGIA) --- */}
+      <div className="w-[80mm] h-full bg-white flex items-stretch p-0.5">
+        <div className="grid grid-cols-4 w-full h-full gap-x-0.5">
+          
+          {/* 1G */}
+          <div className="flex flex-col justify-around h-full py-4">
+            <div className={`${machoStyle} text-[4.2pt] p-0.5 rounded-xs truncate text-center font-bold`}>{P?.nome || "---"}</div>
+            <div className={`${femeaStyle} text-[4.2pt] p-0.5 rounded-xs truncate text-center font-bold`}>{M?.nome || "---"}</div>
           </div>
-        </div>
-        
-        <div className="flex justify-between items-end mt-0.5 px-1">
-          <span className="text-[4pt] text-gray-400 uppercase italic">Autenticidade via QR-Code</span>
-          <span className="text-[3.5pt] text-gray-300 uppercase">Gestão {empresa.nome_fantasia}</span>
+
+          {/* 2G */}
+          <div className="flex flex-col justify-around h-full py-2">
+            <div className={`${machoStyle} text-[4pt] p-0.5 rounded-xs truncate text-center`}>{P?.pai?.nome || P?.pai?.anilha || "---"}</div>
+            <div className={`${femeaStyle} text-[4pt] p-0.5 rounded-xs truncate text-center`}>{P?.mae?.nome || P?.mae?.anilha || "---"}</div>
+            <div className={`${machoStyle} text-[4pt] p-0.5 rounded-xs truncate text-center`}>{M?.pai?.nome || M?.pai?.anilha || "---"}</div>
+            <div className={`${femeaStyle} text-[4pt] p-0.5 rounded-xs truncate text-center`}>{M?.mae?.nome || M?.mae?.anilha || "---"}</div>
+          </div>
+
+          {/* 3G */}
+          <div className="flex flex-col justify-around h-full py-1">
+            <div className={`${machoStyle} text-[3.2pt] truncate text-center`}>{P?.pai?.pai?.nome || P?.pai?.pai?.anilha || "♂"}</div>
+            <div className={`${femeaStyle} text-[3.2pt] truncate text-center`}>{P?.pai?.mae?.nome || P?.pai?.mae?.anilha || "♀"}</div>
+            <div className={`${machoStyle} text-[3.2pt] truncate text-center`}>{P?.mae?.pai?.nome || P?.mae?.pai?.anilha || "♂"}</div>
+            <div className={`${femeaStyle} text-[3.2pt] truncate text-center`}>{P?.mae?.mae?.nome || P?.mae?.mae?.anilha || "♀"}</div>
+            <div className={`${machoStyle} text-[3.2pt] truncate text-center`}>{M?.pai?.pai?.nome || M?.pai?.pai?.anilha || "♂"}</div>
+            <div className={`${femeaStyle} text-[3.2pt] truncate text-center`}>{M?.pai?.mae?.nome || M?.pai?.mae?.anilha || "♀"}</div>
+            <div className={`${machoStyle} text-[3.2pt] truncate text-center`}>{M?.mae?.pai?.nome || M?.mae?.pai?.anilha || "♂"}</div>
+            <div className={`${femeaStyle} text-[3.2pt] truncate text-center`}>{M?.mae?.mae?.nome || M?.mae?.mae?.anilha || "♀"}</div>
+          </div>
+
+          {/* 4G */}
+          <div className="flex flex-col justify-around h-full py-0.5">
+            <Celula4G animal={P?.pai?.pai?.pai} fallbackSex="M" />
+            <Celula4G animal={P?.pai?.pai?.mae} fallbackSex="F" />
+            <Celula4G animal={P?.pai?.mae?.pai} fallbackSex="M" />
+            <Celula4G animal={P?.pai?.mae?.mae} fallbackSex="F" />
+            <Celula4G animal={P?.mae?.pai?.pai} fallbackSex="M" />
+            <Celula4G animal={P?.mae?.pai?.mae} fallbackSex="F" />
+            <Celula4G animal={P?.mae?.mae?.pai} fallbackSex="M" />
+            <Celula4G animal={P?.mae?.mae?.mae} fallbackSex="F" />
+            <Celula4G animal={M?.pai?.pai?.pai} fallbackSex="M" />
+            <Celula4G animal={M?.pai?.pai?.mae} fallbackSex="F" />
+            <Celula4G animal={M?.pai?.mae?.pai} fallbackSex="M" />
+            <Celula4G animal={M?.pai?.mae?.mae} fallbackSex="F" />
+            <Celula4G animal={M?.mae?.pai?.pai} fallbackSex="M" />
+            <Celula4G animal={M?.mae?.pai?.mae} fallbackSex="F" />
+            <Celula4G animal={M?.mae?.mae?.pai} fallbackSex="M" />
+            <Celula4G animal={M?.mae?.mae?.mae} fallbackSex="F" />
+          </div>
+
         </div>
       </div>
-
     </div>
   );
 };

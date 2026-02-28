@@ -191,6 +191,28 @@ export default function InicialLayout({ children }: { children: React.ReactNode 
           </Collapse>
 
 
+          {/* 🔹 Reprodução com Sub Menus */}
+          <ListItemButton onClick={() => setOpenPassaros(!openPassaros)}>
+            <ListItemIcon>
+              <PetsIcon sx={{ color: "#fff" }} />
+            </ListItemIcon>
+            <ListItemText primary="Reprodução" />
+            {openPassaros ? <ExpandLess /> : <ExpandMore />}
+          </ListItemButton>
+
+          <Collapse in={openPassaros} timeout="auto" unmountOnExit>
+            <List component="div" disablePadding>
+              <ListItemButton
+                sx={{ pl: 4 }}
+                selected={pathname === "/inicial_page/reproducao"}
+                onClick={() => goTo("/inicial_page/reproducao")}
+              >
+                <ListItemText primary="Casais" />
+              </ListItemButton>
+              
+            </List>
+          </Collapse>
+
          {/* 🔹 Anilhas */}
           <ListItemButton
             selected={pathname === "/inicial_page/anilhas"}
