@@ -1,140 +1,98 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { createClient } from "@supabase/supabase-js";
-import { Button, TextField, MenuItem, Paper } from "@mui/material";
+import { supabase } from "@/lib/supabaseClient";
+import { useRouter } from "next/navigation";
+import {
+  Box, Button, TextField, Table, TableHead, TableRow, TableCell,
+  TableBody, Typography, Paper, TableContainer, InputAdornment
+} from "@mui/material";
+import SearchIcon from "@mui/icons-material/Search";
+import AddIcon from "@mui/icons-material/Add";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
-
-export default function EspeciesPage() {
+export default function ListaEspecies() {
   const [busca, setBusca] = useState("");
-  const [resultados, setResultados] = useState<any[]>([]);
-  const [tipo, setTipo] = useState("");
-  const [nomeCientifico, setNomeCientifico] = useState("");
-  const [nomeIngles, setNomeIngles] = useState("");
-  const [nomePortugues, setNomePortugues] = useState("");
+  const [registros, setRegistros] = useState<any[]>([]);
+  const router = useRouter();
 
-  // 🔹 Busca dinâmica
+  const larguraGrid = "1200px";
+
   useEffect(() => {
-    const fetchEspecies = async () => {
-      if (busca.length < 2) {
-        setResultados([]);
-        return;
-      }
-      const { data, error } = await supabase
-        .from("especies")
-        .select("*")
-        .or(`nome_cientifico.ilike.%${busca}%,nome_portugues.ilike.%${busca}%`)
-        .limit(10);
+    carregarEspecies();
+  }, []);
 
-      if (!error) setResultados(data || []);
-    };
-    fetchEspecies();
-  }, [busca]);
-
-  // 🔹 Salvar espécie
-  const handleSalvar = async () => {
-    const { error } = await supabase.from("especies").insert([
-      {
-        tipo,
-        nome_cientifico: nomeCientifico,
-        nome_ingles: nomeIngles,
-        nome_portugues: nomePortugues,
-      },
-    ]);
-    if (error) {
-      alert("Erro ao salvar: " + error.message);
-    } else {
-      alert("Espécie salva com sucesso!");
-      handleCancelar();
-    }
+  const carregarEspecies = async () => {
+    const { data, error } = await supabase
+      .from("especies_sispass")
+      .select("*")
+      .order("nome_cientifico");
+    if (!error && data) setRegistros(data);
   };
 
-  // 🔹 Cancelar → limpa campos
-  const handleCancelar = () => {
-    setTipo("");
-    setNomeCientifico("");
-    setNomeIngles("");
-    setNomePortugues("");
-    setBusca("");
-    setResultados([]);
+  const filtrarRegistros = () => {
+    return registros.filter((r) =>
+      r.nome_cientifico?.toLowerCase().includes(busca.toLowerCase()) ||
+      r.nomes_comuns?.some((n: string) => n.toLowerCase().includes(busca.toLowerCase()))
+    );
   };
 
   return (
-    <div className="container">
-      <h2>Cadastro de Espécies</h2>
+    <Box sx={{ width: "100%", py: 2, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+      <Typography variant="h4" sx={{ mb: 4, fontWeight: "900", color: "#1e293b" }}>
+        Espécies SISPASS
+      </Typography>
 
-      {/* Campo de busca */}
-      <TextField
-        label="Buscar espécie (científico ou português)"
-        value={busca}
-        onChange={(e) => setBusca(e.target.value)}
-        fullWidth
-        margin="normal"
-      />
-
-      {/* Lista estilo combo box */}
-      {resultados.length > 0 && (
-        <Paper elevation={3} style={{ backgroundColor: "#f0f8ff", padding: "10px" }}>
-          {resultados.map((esp) => (
-            <MenuItem
-              key={esp.id}
-              onClick={() => {
-                setTipo(esp.tipo || "");
-                setNomeCientifico(esp.nome_cientifico || "");
-                setNomeIngles(esp.nome_ingles || "");
-                setNomePortugues(esp.nome_portugues || "");
-                setResultados([]); // 🔹 recolhe a lista após seleção
-              }}
-            >
-              {esp.nome_cientifico} - {esp.nome_portugues}
-            </MenuItem>
-          ))}
-        </Paper>
-      )}
-
-      {/* Campos de cadastro */}
-      <TextField
-        label="Tipo"
-        value={tipo}
-        onChange={(e) => setTipo(e.target.value)}
-        fullWidth
-        margin="normal"
-      />
-      <TextField
-        label="Nome Científico"
-        value={nomeCientifico}
-        onChange={(e) => setNomeCientifico(e.target.value)}
-        fullWidth
-        margin="normal"
-      />
-      <TextField
-        label="Nome Inglês"
-        value={nomeIngles}
-        onChange={(e) => setNomeIngles(e.target.value)}
-        fullWidth
-        margin="normal"
-      />
-      <TextField
-        label="Nome Português"
-        value={nomePortugues}
-        onChange={(e) => setNomePortugues(e.target.value)}
-        fullWidth
-        margin="normal"
-      />
-
-      {/* Botões */}
-      <div style={{ marginTop: "20px", display: "flex", gap: "1rem" }}>
-        <Button variant="outlined" color="secondary" onClick={handleCancelar}>
-          Cancelar
+      <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 3, width: "100%", maxWidth: larguraGrid }}>
+        <TextField
+          placeholder="Pesquisar por nome comum ou científico..."
+          size="small"
+          fullWidth
+          value={busca}
+          onChange={(e) => setBusca(e.target.value)}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start"><SearchIcon /></InputAdornment>
+            ),
+          }}
+          sx={{ bgcolor: "#fff", borderRadius: 1, flex: 1 }}
+        />
+        <Button
+          variant="contained"
+          startIcon={<AddIcon />}
+          onClick={() => router.push("/inicial_page/especies/novo")}
+          sx={{ minWidth: 180, bgcolor: "#1976d2", fontWeight: "bold", height: "40px", textTransform: 'none' }}
+        >
+          Nova Espécie
         </Button>
-        <Button variant="contained" color="primary" onClick={handleSalvar}>
-          Salvar
-        </Button>
-      </div>
-    </div>
+      </Box>
+
+      <TableContainer component={Paper} elevation={0} sx={{ border: "1px solid #e2e8f0", borderRadius: 3, width: "100%", maxWidth: larguraGrid, overflow: "hidden" }}>
+        <Table sx={{ tableLayout: "fixed" }} size="small">
+          <TableHead>
+            <TableRow sx={{ backgroundColor: "#f8fafc" }}>
+              <TableCell sx={{ fontWeight: "900", width: "150px", color: "#475569" }}>Cód. SISPASS</TableCell>
+              <TableCell sx={{ fontWeight: "900", width: "400px", color: "#475569" }}>Nome Comum</TableCell>
+              <TableCell sx={{ fontWeight: "900", width: "400px", color: "#475569" }}>Nome Científico</TableCell>
+              <TableCell sx={{ fontWeight: "900", width: "250px", color: "#475569" }} align="center">Diâmetro Anilha (mm)</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {filtrarRegistros().map((r, index) => (
+              <TableRow
+                key={r.id}
+                hover
+                onClick={() => router.push(`/inicial_page/especies/${r.id}`)}
+                sx={{ cursor: "pointer", backgroundColor: index % 2 === 0 ? "#fff" : "#f8fafc" }}
+              >
+                <TableCell sx={{ fontWeight: "bold", color: "#1e293b" }}>{r.codigo_sispass}</TableCell>
+                <TableCell sx={{ color: "#475569" }}>{r.nomes_comuns?.join(", ")}</TableCell>
+                <TableCell sx={{ color: "#1e293b", fontStyle: 'italic' }}>{r.nome_cientifico}</TableCell>
+                <TableCell align="center" sx={{ fontWeight: "bold", color: "#1976d2" }}>{r.diametro_anilha} mm</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </TableContainer>
+    </Box>
   );
 }

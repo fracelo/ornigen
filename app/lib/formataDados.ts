@@ -1,15 +1,27 @@
-export function formataDados(d: string, tipo: string): string {
-  if (!d) return "";
+export function formataDados(d: string | number | null | undefined, tipo: string): string {
+  if (d === undefined || d === null || d === "") return "";
+
+  // Converte para string para garantir que o replace(/\D/g, "") funcione
+  const valorTexto = String(d);
 
   switch (tipo.toLowerCase()) {
+    case "moeda": {
+      const valorLimpo = valorTexto.replace(/\D/g, "");
+      if (!valorLimpo) return "R$ 0,00";
+      const valorNumerico = parseFloat(valorLimpo) / 100;
+      return new Intl.NumberFormat("pt-BR", {
+        style: "currency",
+        currency: "BRL",
+      }).format(valorNumerico);
+    }
+
     case "cpf": {
-      let valor = d.replace(/\D/g, "");
+      let valor = valorTexto.replace(/\D/g, "");
       if (valor.length !== 11) return valor;
 
-      // Verifica se todos os dígitos são iguais
+      // Mantendo sua validação original
       if (/^(\d)\1+$/.test(valor)) return "CPF inválido";
 
-      // Validação dos dígitos verificadores
       let soma = 0;
       for (let i = 0; i < 9; i++) soma += parseInt(valor.charAt(i)) * (10 - i);
       let digito1 = (soma * 10) % 11;
@@ -22,7 +34,6 @@ export function formataDados(d: string, tipo: string): string {
       if (digito2 === 10) digito2 = 0;
       if (digito2 !== parseInt(valor.charAt(10))) return "CPF inválido";
 
-      // Se válido, retorna formatado
       return valor
         .replace(/(\d{3})(\d)/, "$1.$2")
         .replace(/(\d{3})(\d)/, "$1.$2")
@@ -30,9 +41,10 @@ export function formataDados(d: string, tipo: string): string {
     }
 
     case "cnpj": {
-      let valor = d.replace(/\D/g, "");
+      let valor = valorTexto.replace(/\D/g, "");
       if (valor.length !== 14) return valor;
 
+      // Mantendo sua validação original
       if (/^(\d)\1+$/.test(valor)) return "CNPJ inválido";
 
       const calcDigito = (base: string, pesoInicial: number) => {
@@ -61,12 +73,12 @@ export function formataDados(d: string, tipo: string): string {
     }
 
     case "cep": {
-      let valor = d.replace(/\D/g, "");
+      let valor = valorTexto.replace(/\D/g, "");
       return valor.replace(/(\d{5})(\d{1,3})$/, "$1-$2");
     }
 
     case "celular": {
-      let valor = d.replace(/\D/g, "");
+      let valor = valorTexto.replace(/\D/g, "");
       return valor
         .replace(/^(\d{2})(\d)/, "$1 $2")
         .replace(/(\d{1})(\d{4})(\d)/, "$1 $2-$3")
@@ -74,10 +86,10 @@ export function formataDados(d: string, tipo: string): string {
     }
 
     case "email": {
-      return d.trim().toLowerCase();
+      return valorTexto.trim().toLowerCase();
     }
 
     default:
-      return d;
+      return valorTexto;
   }
 }

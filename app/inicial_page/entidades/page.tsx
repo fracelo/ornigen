@@ -2,211 +2,174 @@
 
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { useRouter } from "next/navigation";
 import { useEmpresa } from "@/context/empresaContext";
+import { formataDados } from "@/lib/formataDados";
 import {
-  Box, TextField, Button, Typography, Paper, Container, 
-  Autocomplete, Stack, Divider, CircularProgress, Avatar, Alert, IconButton
+  Box,
+  Button,
+  TextField,
+  Table,
+  TableHead,
+  TableRow,
+  TableCell,
+  TableBody,
+  Typography,
+  Paper,
+  TableContainer,
+  InputAdornment,
 } from "@mui/material";
-import SaveIcon from "@mui/icons-material/Save";
+import SearchIcon from "@mui/icons-material/Search";
 import AddIcon from "@mui/icons-material/Add";
-import BusinessIcon from "@mui/icons-material/Business";
-import CloudUploadIcon from "@mui/icons-material/CloudUpload";
-import DeleteIcon from "@mui/icons-material/Delete";
 
-export default function EntidadesPage() {
+export default function ListaEntidades() {
+  const [busca, setBusca] = useState("");
+  const [registros, setRegistros] = useState<any[]>([]);
+  const router = useRouter();
   const { empresaId } = useEmpresa();
-  const [loading, setLoading] = useState(false);
-  const [entidades, setEntidades] = useState<any[]>([]);
-  const [entidadeSelecionada, setEntidadeSelecionada] = useState<any>(null);
-  const [uploading, setUploading] = useState(false);
-  
-  const [form, setForm] = useState({
-    nome: "",
-    sigla: "",
-    tipo: "",
-    logo_url: ""
-  });
 
-  const carregarLista = async () => {
-    if (!empresaId) return;
-    const { data } = await supabase
+  useEffect(() => {
+    if (empresaId) carregarRegistros();
+  }, [empresaId]);
+
+  const carregarRegistros = async () => {
+    const { data, error } = await supabase
       .from("entidades")
       .select("*")
       .eq("empresa_id", empresaId)
       .order("nome");
-    setEntidades(data || []);
-  };
-
-  useEffect(() => { carregarLista(); }, [empresaId]);
-
-  const handleSelecionar = (event: any, newValue: any) => {
-    setEntidadeSelecionada(newValue);
-    if (newValue) {
-      setForm({
-        nome: newValue.nome,
-        sigla: newValue.sigla || "",
-        tipo: newValue.tipo || "",
-        logo_url: newValue.logo_url || ""
-      });
-    } else {
-      setForm({ nome: "", sigla: "", tipo: "", logo_url: "" });
+    
+    if (!error && data) {
+      setRegistros(data);
     }
   };
 
-  const handleUploadLogo = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    try {
-      if (!event.target.files || event.target.files.length === 0 || !empresaId) return;
-      setUploading(true);
-
-      const file = event.target.files[0];
-      const fileExt = file.name.split('.').pop();
-      // Nome padronizado: logo_entidade + timestamp para evitar cache do navegador
-      const fileName = `${empresaId}/logo_entidade_${Date.now()}.${fileExt}`;
-
-      // Upload para o bucket 'logos'
-      const { error: uploadError } = await supabase.storage
-        .from('logos')
-        .upload(fileName, file);
-
-      if (uploadError) throw uploadError;
-
-      // Pegar URL Pública
-      const { data: urlData } = supabase.storage.from('logos').getPublicUrl(fileName);
-      
-      setForm(prev => ({ ...prev, logo_url: urlData.publicUrl }));
-      
-    } catch (error: any) {
-      alert("Erro ao carregar logo: " + error.message);
-    } finally {
-      setUploading(false);
-    }
+  const filtrarRegistros = () => {
+    return registros.filter((r) =>
+      r.nome?.toLowerCase().includes(busca.toLowerCase()) ||
+      r.sigla?.toLowerCase().includes(busca.toLowerCase())
+    );
   };
 
-  const handleSalvar = async () => {
-    if (!form.nome || !empresaId) return;
-    setLoading(true);
-    try {
-      if (entidadeSelecionada) {
-        await supabase.from("entidades").update(form).eq("id", entidadeSelecionada.id);
-        alert("Entidade atualizada!");
-      } else {
-        await supabase.from("entidades").insert([{ ...form, empresa_id: empresaId }]);
-        alert("Entidade cadastrada!");
-      }
-      // Resetar estados
-      setEntidadeSelecionada(null);
-      setForm({ nome: "", sigla: "", tipo: "", logo_url: "" });
-      carregarLista();
-    } catch (err) {
-      alert("Erro ao salvar dados.");
-    } finally {
-      setLoading(false);
-    }
-  };
+  // 📐 GRID DE 1200px CENTRALIZADO
+  const larguraGrid = "1200px"; 
 
   return (
-    <Container maxWidth="md" sx={{ py: 4 }}>
-      <Paper variant="outlined" sx={{ p: 3, borderRadius: 2 }}>
-        <Stack direction="row" spacing={2} alignItems="center" mb={3}>
-          <BusinessIcon color="primary" fontSize="large" />
-          <Typography variant="h5" fontWeight="bold">Cadastro de Clubes / Federações</Typography>
-        </Stack>
+    <Box sx={{ width: "100%", py: 2, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+      
+      <Typography variant="h4" sx={{ mb: 4, fontWeight: "900", color: "#1e293b" }}>
+        Gestão de Clubes e Federações
+      </Typography>
 
-        <Box sx={{ mb: 4, bgcolor: '#f8f9fa', p: 2, borderRadius: 1, border: '1px solid #e0e0e0' }}>
-          <Typography variant="caption" fontWeight="bold" color="text.secondary">
-            EDITAR ENTIDADE EXISTENTE
-          </Typography>
-          <Autocomplete
-            options={entidades}
-            getOptionLabel={(o) => `${o.nome} ${o.sigla ? `(${o.sigla})` : ""}`}
-            value={entidadeSelecionada}
-            onChange={handleSelecionar}
-            renderInput={(params) => <TextField {...params} placeholder="Pesquise por nome ou sigla..." size="small" />}
-            fullWidth
-          />
-        </Box>
+      {/* 🟢 BUSCA E BOTÃO - Começam exatamente no limite dos 1200px */}
+      <Box sx={{ 
+        display: "flex", 
+        alignItems: "center",
+        gap: 2, 
+        mb: 2,
+        width: "100%",
+        maxWidth: larguraGrid, 
+      }}>
+        <TextField
+          placeholder="Pesquisar entidade por nome ou sigla..."
+          size="small"
+          fullWidth
+          value={busca}
+          onChange={(e) => setBusca(e.target.value)}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <SearchIcon />
+              </InputAdornment>
+            ),
+          }}
+          sx={{ 
+            bgcolor: "#fff", 
+            borderRadius: 1,
+            flex: 1 // Estende até o botão
+          }}
+        />
 
-        <Divider sx={{ mb: 3 }} />
+        <Button
+          variant="contained"
+          startIcon={<AddIcon />}
+          onClick={() => router.push("/inicial_page/entidades/novo")}
+          sx={{ 
+            minWidth: 180, 
+            bgcolor: "#1976d2", 
+            fontWeight: "bold", 
+            textTransform: 'none',
+            height: "40px",
+            whiteSpace: "nowrap"
+          }}
+        >
+          Nova Entidade
+        </Button>
+      </Box>
 
-        <Stack spacing={3}>
-          {/* ÁREA DO LOGO */}
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <Box sx={{ position: 'relative' }}>
-              <Avatar 
-                src={form.logo_url} 
-                variant="rounded" 
-                sx={{ width: 120, height: 120, border: '2px dashed #ccc', bgcolor: '#fff' }}
+      {/* 🔵 TABELA - Também inicia exatamente no limite dos 1200px */}
+      <TableContainer 
+        component={Paper} 
+        elevation={0} 
+        sx={{ 
+          border: "1px solid #e2e8f0", 
+          borderRadius: 3,
+          width: "100%",
+          maxWidth: larguraGrid, 
+          overflow: "hidden"
+        }}
+      >
+        <Table sx={{ tableLayout: "fixed", width: "100%" }} size="small">
+          <TableHead>
+            <TableRow sx={{ backgroundColor: "#f8fafc" }}>
+              {/* Coluna 1: Agora é o Nome, alinhada com o Campo de Busca */}
+              <TableCell sx={{ fontWeight: "900", width: "35%", color: "#475569" }}>Nome / Entidade</TableCell>
+              
+              <TableCell sx={{ fontWeight: "900", width: "10%", color: "#475569" }}>Sigla</TableCell>
+              <TableCell sx={{ fontWeight: "900", width: "25%", color: "#475569" }}>Cidade / UF</TableCell>
+              <TableCell sx={{ fontWeight: "900", width: "15%", color: "#475569" }}>Contato</TableCell>
+              <TableCell sx={{ fontWeight: "900", width: "15%", color: "#475569" }}>Telefone</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {filtrarRegistros().map((r, index) => (
+              <TableRow
+                key={r.id}
+                hover
+                onClick={() => router.push(`/inicial_page/entidades/${r.id}`)}
+                sx={{
+                  cursor: "pointer",
+                  backgroundColor: index % 2 === 0 ? "#fff" : "#f8fafc",
+                  "&:hover": { backgroundColor: "#f1f5f9 !important" }
+                }}
               >
-                <BusinessIcon sx={{ fontSize: 60, color: '#eee' }} />
-              </Avatar>
-              {form.logo_url && (
-                <IconButton 
-                  size="small" 
-                  sx={{ position: 'absolute', top: -10, right: -10, bgcolor: 'white', border: '1px solid #ddd' }}
-                  onClick={() => setForm({...form, logo_url: ""})}
-                >
-                  <DeleteIcon fontSize="inherit" color="error" />
-                </IconButton>
-              )}
-            </Box>
-            
-            <Stack spacing={1}>
-              <Typography variant="subtitle2">Logo da Entidade</Typography>
-              <Typography variant="caption" color="text.secondary">Use preferencialmente arquivos PNG com fundo transparente.</Typography>
-              <Button 
-                variant="outlined" 
-                component="label" 
-                startIcon={uploading ? <CircularProgress size={20} /> : <CloudUploadIcon />}
-                disabled={uploading}
-                size="small"
-              >
-                {uploading ? "Enviando..." : "Selecionar Logo"}
-                <input type="file" hidden accept="image/*" onChange={handleUploadLogo} />
-              </Button>
-            </Stack>
-          </Box>
-
-          <TextField 
-            label="Nome Oficial da Entidade" 
-            fullWidth 
-            value={form.nome} 
-            onChange={(e) => setForm({...form, nome: e.target.value})} 
-          />
-          
-          <Stack direction="row" spacing={2}>
-            <TextField 
-              label="Sigla / Abreviação" 
-              fullWidth 
-              value={form.sigla} 
-              onChange={(e) => setForm({...form, sigla: e.target.value})} 
-            />
-            <TextField 
-              label="Tipo (Ex: Federação, Clube)" 
-              fullWidth 
-              value={form.tipo} 
-              onChange={(e) => setForm({...form, tipo: e.target.value})} 
-            />
-          </Stack>
-
-          <Box sx={{ display: 'flex', gap: 2, pt: 2 }}>
-            <Button 
-              variant="contained" 
-              startIcon={<SaveIcon />} 
-              onClick={handleSalvar}
-              disabled={loading || !form.nome}
-              sx={{ px: 4 }}
-            >
-              {entidadeSelecionada ? "Atualizar" : "Cadastrar"}
-            </Button>
-            <Button 
-              variant="outlined" 
-              onClick={() => { setEntidadeSelecionada(null); setForm({nome:"", sigla:"", tipo:"", logo_url:""}); }}
-            >
-              Limpar / Novo
-            </Button>
-          </Box>
-        </Stack>
-      </Paper>
-    </Container>
+                <TableCell sx={{ 
+                  fontWeight: "600", 
+                  color: "#1e293b", 
+                  whiteSpace: "nowrap", 
+                  overflow: "hidden", 
+                  textOverflow: "ellipsis" 
+                }}>
+                  {r.nome}
+                </TableCell>
+                <TableCell sx={{ color: "#64748b", fontWeight: "bold" }}>{r.sigla || "---"}</TableCell>
+                <TableCell sx={{ color: "#64748b" }}>{r.cidade ? `${r.cidade} - ${r.uf}` : "---"}</TableCell>
+                <TableCell sx={{ color: "#64748b" }}>{r.contato_nome || "---"}</TableCell>
+                <TableCell sx={{ color: "#64748b", fontFamily: 'monospace' }}>
+                  {r.telefone ? formataDados(r.telefone, "celular") : "---"}
+                </TableCell>
+              </TableRow>
+            ))}
+            {filtrarRegistros().length === 0 && (
+              <TableRow>
+                <TableCell colSpan={5} align="center" sx={{ py: 6, color: "#94a3b8" }}>
+                  Nenhuma entidade encontrada.
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </TableContainer>
+    </Box>
   );
 }

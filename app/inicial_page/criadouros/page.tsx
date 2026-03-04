@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { createClient } from "@supabase/supabase-js";
+import { supabase } from "@/lib/supabaseClient";
 import { useRouter } from "next/navigation";
 import {
   Box,
@@ -13,12 +13,12 @@ import {
   TableCell,
   TableBody,
   Typography,
+  Paper,
+  TableContainer,
+  InputAdornment,
 } from "@mui/material";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+import SearchIcon from "@mui/icons-material/Search";
+import AddIcon from "@mui/icons-material/Add";
 
 export default function ListaCriadouros() {
   const [busca, setBusca] = useState("");
@@ -30,7 +30,7 @@ export default function ListaCriadouros() {
   }, []);
 
   const carregarRegistros = async () => {
-    const { data, error } = await supabase.from("criadouros").select("*");
+    const { data, error } = await supabase.from("criadouros").select("*").order("razao_social");
     if (!error && data) {
       setRegistros(data);
     }
@@ -38,78 +38,138 @@ export default function ListaCriadouros() {
 
   const filtrarRegistros = () => {
     return registros.filter((r) =>
-      r.razao_social.toLowerCase().includes(busca.toLowerCase())
+      r.razao_social?.toLowerCase().includes(busca.toLowerCase())
     );
   };
 
-  const editarRegistro = (id: number) => {
-    router.push(`/inicial_page/criadouros/${id}`); // abre tela de edição
-  };
-
- const novoRegistro = () => {
-  router.push("/inicial_page/criadouros/novo");
-};
+  // 📐 GRID PADRONIZADO EM 1200px
+  const larguraTotalTabela = "1200px"; 
 
   return (
-    <Box sx={{ p: 4 }}>
-      <Typography
-        variant="h4"
-        sx={{ mb: 3, color: "#0D47A1", fontWeight: "bold", textAlign: "center" }}
-      >
-        Lista de Criadouros
+    <Box sx={{ width: "100%", py: 2, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+      
+      <Typography variant="h4" sx={{ mb: 4, fontWeight: "900", color: "#1e293b", textAlign: 'center' }}>
+        Gestão de Criadouros
       </Typography>
 
-      {/* Barra de busca + botão novo */}
-      <Box sx={{ display: "flex", gap: 2, mb: 2 }}>
+      {/* 🟢 AREA DE BUSCA E BOTÃO - ALINHADOS AO GRID */}
+      <Box sx={{ 
+        display: "flex", 
+        alignItems: "center",
+        gap: 2, 
+        mb: 3, 
+        width: "100%",
+        maxWidth: larguraTotalTabela, 
+      }}>
         <TextField
-          label="Pesquisar por Razão Social"
+          placeholder="Pesquisar por Razão Social..."
+          size="small"
           value={busca}
           onChange={(e) => setBusca(e.target.value)}
-          sx={{ flex: 1 }}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <SearchIcon />
+              </InputAdornment>
+            ),
+          }}
+          sx={{ 
+            bgcolor: "#fff", 
+            borderRadius: 1,
+            flex: 1 // 🚀 Ocupa o espaço entre o início da tabela e o botão
+          }}
         />
+
         <Button
           variant="contained"
-          color="primary"
-          size="large"
-          onClick={novoRegistro}
-          sx={{ minWidth: 180, height: 56 }}
+          startIcon={<AddIcon />}
+          onClick={() => router.push("/inicial_page/criadouros/novo")}
+          sx={{ 
+            minWidth: 180, // 🔹 Garante espaço para o texto em uma linha
+            bgcolor: "#1976d2", 
+            fontWeight: "bold", 
+            borderRadius: 1.5,
+            textTransform: 'none',
+            height: "40px",
+            whiteSpace: "nowrap" // 🚀 Impede quebra de linha
+          }}
         >
-          Novo
+          Novo Criadouro
         </Button>
       </Box>
 
-      {/* Tabela de registros */}
-      <Table>
-        <TableHead>
-          <TableRow sx={{ backgroundColor: "#1976d2" }}>
-            <TableCell sx={{ fontWeight: "bold", color: "#fff" }}>Razão Social</TableCell>
-            <TableCell sx={{ fontWeight: "bold", color: "#fff" }}>Responsável</TableCell>
-            <TableCell sx={{ fontWeight: "bold", color: "#fff" }}>Cidade</TableCell>
-            <TableCell sx={{ fontWeight: "bold", color: "#fff" }}>UF</TableCell>
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {filtrarRegistros().map((r, index) => (
-            <TableRow
-              key={r.id}
-              hover
-              onClick={() => editarRegistro(r.id)}
-              sx={{
-                cursor: "pointer",
-                backgroundColor: index % 2 === 0 ? "#e3f2fd" : "#90caf9", // alterna azul claro
-                "& td": {
-                  borderBottom: "1px solid #000", // separador preto
-                },
-              }}
-            >
-              <TableCell>{r.razao_social}</TableCell>
-              <TableCell>{r.responsavel_nome}</TableCell>
-              <TableCell>{r.cidade}</TableCell>
-              <TableCell>{r.estado}</TableCell>
+      {/* 🔵 TABELA CENTRALIZADA */}
+      <TableContainer 
+        component={Paper} 
+        elevation={0} 
+        sx={{ 
+          border: "1px solid #e2e8f0", 
+          borderRadius: 3,
+          width: "100%",
+          maxWidth: larguraTotalTabela, 
+          overflow: "hidden"
+        }}
+      >
+        <Table sx={{ tableLayout: "fixed" }}>
+          <TableHead>
+            <TableRow sx={{ backgroundColor: "#f8fafc" }}>
+              {/* Colunas usando larguras fixas dentro do total de 1200px */}
+              <TableCell sx={{ fontWeight: "900", width: "550px", color: "#475569" }}>Razão Social / Nome</TableCell>
+              <TableCell sx={{ fontWeight: "900", width: "350px", color: "#475569" }}>Cidade</TableCell>
+              <TableCell sx={{ fontWeight: "900", width: "80px", color: "#475569" }} align="center">UF</TableCell>
+              <TableCell sx={{ fontWeight: "900", width: "220px", color: "#475569" }}>SISPASS</TableCell>
             </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+          </TableHead>
+          <TableBody>
+            {filtrarRegistros().map((r, index) => (
+              <TableRow
+                key={r.id}
+                hover
+                onClick={() => router.push(`/inicial_page/criadouros/${r.id}`)}
+                sx={{
+                  cursor: "pointer",
+                  backgroundColor: index % 2 === 0 ? "#fff" : "#f8fafc",
+                  "&:hover": { backgroundColor: "#f1f5f9 !important" }
+                }}
+              >
+                <TableCell sx={{ 
+                  fontWeight: "600", 
+                  color: "#334155",
+                  whiteSpace: "nowrap", 
+                  overflow: "hidden", 
+                  textOverflow: "ellipsis" 
+                }}>
+                  {r.razao_social}
+                </TableCell>
+
+                <TableCell sx={{ 
+                  color: "#64748b",
+                  whiteSpace: "nowrap", 
+                  overflow: "hidden", 
+                  textOverflow: "ellipsis" 
+                }}>
+                  {r.cidade}
+                </TableCell>
+
+                <TableCell align="center" sx={{ color: "#64748b", fontWeight: "bold" }}>
+                  {r.estado}
+                </TableCell>
+
+                <TableCell sx={{ color: "#64748b", fontFamily: 'monospace', letterSpacing: 0.5 }}>
+                  {r.registro_sispass || "---"}
+                </TableCell>
+              </TableRow>
+            ))}
+            {filtrarRegistros().length === 0 && (
+              <TableRow>
+                <TableCell colSpan={4} align="center" sx={{ py: 6, color: "#94a3b8" }}>
+                  Nenhum criadouro localizado.
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </TableContainer>
     </Box>
   );
 }
