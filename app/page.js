@@ -154,17 +154,76 @@ export default function LandingPage() {
         clipPath: "ellipse(150% 100% at 50% 0%)"
       }}>
         <Container maxWidth="md">
-          <Box component="img" src="/logo-ornigen.png" alt="OrniGen Logo" sx={{ height: { xs: 80, md: 120 }, mb: 4, filter: 'brightness(0) invert(1)' }} />
-          <Typography variant="h2" sx={{ fontWeight: "900", mb: 2, fontSize: { xs: '2.5rem', md: '4rem' } }}>
-            Gestão de Elite para o seu Criadouro
-          </Typography>
-          <Typography variant="h5" sx={{ opacity: 0.9, mb: 5, fontWeight: 300 }}>
-            A tecnologia a serviço da ornitologia profissional.
-          </Typography>
-          <Button variant="contained" color="secondary" size="large" sx={{ px: 6, py: 2, borderRadius: 3, fontWeight: 'bold' }} onClick={() => router.push("/register")}>
-            Começar Agora
-          </Button>
-        </Container>
+        <Box 
+          sx={{ 
+            display: 'flex', 
+            flexDirection: { xs: 'column-reverse', md: 'row' }, // No celular a imagem fica em cima, no PC ao lado
+            alignItems: 'center', 
+            justifyContent: 'space-between',
+            gap: 4 
+          }}
+        >
+          {/* Bloco de Texto (Esquerda) */}
+          <Box sx={{ flex: 1, textAlign: { xs: 'center', md: 'left' } }}>
+            <Typography 
+              variant="h2" 
+              sx={{ 
+                fontWeight: "900", 
+                mb: 2, 
+                fontSize: { xs: '2.5rem', md: '3.5rem' },
+                lineHeight: 1.1 
+              }}
+            >
+              Gestão de Elite para o seu Criadouro
+            </Typography>
+            
+            <Typography variant="h5" sx={{ opacity: 0.9, mb: 4, fontWeight: 300 }}>
+              A tecnologia a serviço da ornitologia profissional.
+            </Typography>
+
+            <Button 
+              variant="contained" 
+              color="secondary" 
+              size="large" 
+              sx={{ px: 6, py: 2, borderRadius: 3, fontWeight: 'bold' }} 
+              onClick={() => router.push("/register")}
+            >
+              Começar Agora
+            </Button>
+          </Box>
+
+          {/* Bloco da Imagem (Direita) */}
+          <Box 
+            sx={{ 
+              flex: { xs: 'none', md: 0.8 }, 
+              display: 'flex', 
+              justifyContent: 'center' 
+            }}
+          >
+            <Box 
+              component="img" 
+              src="/icons/passaros.png" 
+              alt="Ícone Pássaros" 
+              sx={{ 
+                width: { xs: 280, md: 480 }, // Tamanho maior conforme solicitado
+                height: 'auto',
+                objectFit: 'contain',
+                filter: 'drop-shadow(0px 10px 20px rgba(0,0,0,0.2))', // Dá profundidade à imagem
+                animation: 'float 6s ease-in-out infinite' // Opcional: um leve movimento de flutuar
+              }} 
+            />
+            </Box>
+          </Box>
+
+  {/* Estilo para a animação opcional de flutuar */}
+  <style jsx global>{`
+    @keyframes float {
+      0% { transform: translateY(0px); }
+      50% { transform: translateY(-15px); }
+      100% { transform: translateY(0px); }
+    }
+  `}</style>
+</Container>
       </Box>
 
       {/* Planos */}
