@@ -19,6 +19,7 @@ export default function InicialLayout({ children }: { children: React.ReactNode 
   const [openPassaros, setOpenPassaros] = useState(false);
   const [openReproducao, setOpenReproducao] = useState(false);
   const [openFinanceiro, setOpenFinanceiro] = useState(false);
+  const [openAlimentos, setOpenAlimentos] = useState(false); // 🔹 Novo estado para Alimentos
   
   const { usuarioLogado, setUsuarioLogado } = useAuth();
   const { nomeEmpresa, setEmpresaId, setNomeEmpresa } = useEmpresa();
@@ -167,8 +168,6 @@ export default function InicialLayout({ children }: { children: React.ReactNode 
                 <ListItemIcon sx={{ minWidth: 0 }}>{CustomIcon("/icons/listapassaros.png", 48)}</ListItemIcon>
                 <ListItemText primary="Relação" primaryTypographyProps={{ fontSize: '0.7rem' }} />
               </ListItemButton>
-              
-              {/* Novo Item: Transferências */}
               <ListItemButton 
                 sx={{ flexDirection: 'column', py: 2 }} 
                 selected={pathname === "/inicial_page/passaros/transferencias"} 
@@ -220,6 +219,38 @@ export default function InicialLayout({ children }: { children: React.ReactNode 
             <ListItemIcon sx={{ minWidth: 0 }}>{CustomIcon("/icons/medicamentos.png")}</ListItemIcon>
             <ListItemText primary="Medicamentos" primaryTypographyProps={{ fontSize: '0.75rem', fontWeight: 'bold' }} />
           </ListItemButton>
+
+          {/* 🔹 Novo Item: Alimentos com Submenu */}
+          <ListItemButton 
+            onClick={() => setOpenAlimentos(!openAlimentos)} 
+            sx={{ flexDirection: 'column', alignItems: 'center', mb: 1 }}
+          >
+            <ListItemIcon sx={{ minWidth: 0 }}>{CustomIcon("/icons/alimentos.png")}</ListItemIcon>
+            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                <Typography sx={{ fontSize: '0.75rem', fontWeight: 'bold' }}>Alimentos</Typography>
+                {openAlimentos ? <ExpandLess sx={{ fontSize: 16 }} /> : <ExpandMore sx={{ fontSize: 16 }} />}
+            </Box>
+          </ListItemButton>
+          <Collapse in={openAlimentos} timeout="auto" unmountOnExit>
+            <List component="div" disablePadding>
+              <ListItemButton 
+                sx={{ flexDirection: 'column', py: 2 }} 
+                selected={pathname === "/inicial_page/alimentos/cadastro"} 
+                onClick={() => goTo("/inicial_page/alimentos/cadastro")}
+              >
+                <ListItemIcon sx={{ minWidth: 0 }}>{CustomIcon("/icons/cadastro.png", 48)}</ListItemIcon>
+                <ListItemText primary="Cadastros" primaryTypographyProps={{ fontSize: '0.7rem' }} />
+              </ListItemButton>
+              <ListItemButton 
+                sx={{ flexDirection: 'column', py: 2 }} 
+                selected={pathname === "/inicial_page/alimentos/grupos"} 
+                onClick={() => goTo("/inicial_page/alimentos/grupos")}
+              >
+                <ListItemIcon sx={{ minWidth: 0 }}>{CustomIcon("/icons/grupos.png", 48)}</ListItemIcon>
+                <ListItemText primary="Grupos" primaryTypographyProps={{ fontSize: '0.7rem' }} />
+              </ListItemButton>
+            </List>
+          </Collapse>
 
           <ListItemButton 
             onClick={() => setOpenFinanceiro(!openFinanceiro)} 

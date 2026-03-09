@@ -8,6 +8,7 @@ import { Box, Container, Typography, AppBar, Toolbar, Button, Stack, Paper, Icon
 import ArrowBackIosNewIcon from "@mui/icons-material/ArrowBackIosNew";
 import ArrowForwardIosIcon from "@mui/icons-material/ArrowForwardIos";
 import { useRouter } from "next/navigation";
+import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 
 // --- 1. COMPONENTE DO CARROSSEL PROFISSIONAL ---
 function CarrosselTelas() {
@@ -181,15 +182,8 @@ export default function LandingPage() {
               A tecnologia a serviço da ornitologia profissional.
             </Typography>
 
-            <Button 
-              variant="contained" 
-              color="secondary" 
-              size="large" 
-              sx={{ px: 6, py: 2, borderRadius: 3, fontWeight: 'bold' }} 
-              onClick={() => router.push("/register")}
-            >
-              Começar Agora
-            </Button>
+            
+            
           </Box>
 
           {/* Bloco da Imagem (Direita) */}
@@ -224,7 +218,74 @@ export default function LandingPage() {
     }
   `}</style>
 </Container>
+      <Box>
+        <Button 
+              variant="contained" 
+              color="secondary" 
+              size="large" 
+              sx={{ px: 6, py: 2, borderRadius: 3, fontWeight: 'bold' }} 
+              onClick={() => router.push("/register")}
+            >
+              Começar Agora
+            </Button>
+        
       </Box>
+      </Box>
+      <Box 
+        sx={{ 
+          maxWidth: 1200, 
+          mx: "auto", // Centraliza o Box na tela
+          width: "100%", 
+          px: 2, 
+          mb: 5 
+        }}
+      >
+        <Stack spacing={2.5}>
+          {[
+            "Com o OrniGen, você tem controle total sobre a saúde, reprodução e bem-estar dos seus pássaros, tudo em um só lugar.",
+            "Deixe a burocracia de lado e foque no que realmente importa: criar pássaros saudáveis e felizes.",
+            "Com a configuração de crachás, você pode monitorar cada ave individualmente, garantindo um cuidado personalizado e eficiente utilizando QR Code e Celular.",
+            "Pedigree personalizável para registrar a linhagem de cada pássaro, facilitando a gestão genética e a valorização do seu plantel.",
+            "Controle de posturas e crias para acompanhar o desenvolvimento de cada ave desde o nascimento, garantindo um crescimento saudável e bem documentado.",
+            "Reserva de filhotes para organizar e planejar futuras ninhadas, otimizando a reprodução e o manejo do seu criadouro.",
+            "Agenda de medicamentos para garantir que cada pássaro receba os cuidados necessários no momento certo, promovendo a saúde e o bem-estar do seu plantel.",
+            "Controle de dieta independente para cada ave, permitindo uma alimentação personalizada que atende às necessidades específicas de cada pássaro, promovendo sua saúde e longevidade."
+
+          ].map((texto, index) => (
+            <Box 
+              key={index} 
+              sx={{ 
+                display: "flex", 
+                alignItems: "flex-start", 
+                gap: 2,
+                opacity: 0.9 
+              }}
+            >
+              {/* Ícone elegante substituindo o hífen */}
+              <CheckCircleIcon 
+                sx={{ 
+                  color: "secondary.main", // Usa a cor secundária do seu tema
+                  fontSize: "1.5rem", 
+                  mt: 0.5 
+                }} 
+              />
+              
+              <Typography 
+                variant="h6" 
+                sx={{ 
+                  fontWeight: 300, 
+                  lineHeight: 1.4,
+                  fontSize: { xs: '1.1rem', md: '1.25rem' },
+                  textAlign: "left"
+                }}
+              >
+                {texto}
+              </Typography>
+            </Box>
+          ))}
+        </Stack>
+      </Box>
+
 
       {/* Planos */}
       <Container sx={{ py: 12 }}>

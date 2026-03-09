@@ -3,23 +3,33 @@
 import { useState } from "react";
 import { supabase } from "../lib/supabaseClient";
 import { 
-  Box, Typography, Button, TextField, Paper, Container, CssBaseline, CircularProgress 
+  Box, Typography, Button, TextField, Paper, Container, CssBaseline, CircularProgress,
+  IconButton, InputAdornment 
 } from "@mui/material";
 import { useRouter } from "next/navigation";
 import { formataDados } from "../lib/formataDados";
 import { useEmpresa } from "../context/empresaContext";
 import { useAuth } from "../context/authContext";
 
+// Ícones para o campo de senha
+import Visibility from "@mui/icons-material/Visibility";
+import VisibilityOff from "@mui/icons-material/VisibilityOff";
+
+
 export default function LoginPage() {
   const router = useRouter();
   
-  // 🔹 Acessando os Contextos
   const { setUsuarioLogado } = useAuth(); 
   const { setEmpresaId, setNomeEmpresa } = useEmpresa();
 
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
   const [carregando, setCarregando] = useState(false);
+  
+  // 🔹 Estado para controlar a visibilidade da senha
+  const [mostrarSenha, setMostrarSenha] = useState(false);
+
+  const handleClickMostrarSenha = () => setMostrarSenha((show) => !show);
 
   const handleLogin = async () => {
     if (!email || !senha) {
@@ -30,7 +40,6 @@ export default function LoginPage() {
     setCarregando(true);
 
     try {
-      // 1. Autenticação no Supabase
       const emailFormatado = formataDados(email.trim(), "email");
       const { data, error } = await supabase.auth.signInWithPassword({
         email: emailFormatado,
@@ -46,10 +55,8 @@ export default function LoginPage() {
       const user = data.user;
 
       if (user) {
-        // 🔹 Define o estado de autenticação global
         setUsuarioLogado(true);
 
-        // 2. Buscar vínculos do usuário
         const { data: empresas, error: erroVinculo } = await supabase
           .from("empresa_usuarios")
           .select("empresa_id, status")
@@ -64,7 +71,6 @@ export default function LoginPage() {
           return;
         }
 
-        // 3. Busca dados da Empresa e define o contexto da Empresa
         const empresaId = autorizadas[0].empresa_id;
 
         const { data: empresaData } = await supabase
@@ -73,12 +79,9 @@ export default function LoginPage() {
           .eq("id", empresaId)
           .single();
 
-        // 🔹 ATUALIZAÇÃO DOS CONTEXTOS
-        // Isso garante que a InicialPage já abra com os dados carregados
         setEmpresaId(empresaId);
         setNomeEmpresa(empresaData?.nome_fantasia || empresaData?.razao_social || "Empresa");
 
-        // 4. Redireciona para a home do sistema
         router.push("/inicial_page");
       }
     } catch (err) {
@@ -118,13 +121,28 @@ export default function LoginPage() {
           
           <TextField 
             label="Senha" 
-            type="password" 
+            // 🔹 Tipo dinâmico baseado no estado mostrarSenha
+            type={mostrarSenha ? "text" : "password"} 
             fullWidth 
             margin="normal" 
             value={senha} 
             onChange={(e) => setSenha(e.target.value)} 
             onKeyDown={handleKeyDown}
             sx={{ mb: 3 }}
+            // 🔹 Adicionando o ícone do olho no final do campo
+            InputProps={{
+              endAdornment: (
+                <InputAdornment position="end">
+                  <IconButton
+                    aria-label="alternar visibilidade da senha"
+                    onClick={handleClickMostrarSenha}
+                    edge="end"
+                  >
+                    {mostrarSenha ? <VisibilityOff /> : <Visibility />}
+                  </IconButton>
+                </InputAdornment>
+              ),
+            }}
           />
 
           <Button
