@@ -13,6 +13,7 @@ import AddIcon from "@mui/icons-material/Add";
 import SearchIcon from "@mui/icons-material/Search";
 import EditIcon from "@mui/icons-material/Edit";
 import FastfoodIcon from "@mui/icons-material/Fastfood";
+import BarcodeIcon from "@mui/icons-material/QrCode";
 
 export default function ListaAlimentos() {
   const router = useRouter();
@@ -44,7 +45,8 @@ export default function ListaAlimentos() {
 
   const filtrados = alimentos.filter(a =>
     a.nome?.toLowerCase().includes(busca.toLowerCase()) ||
-    a.marca?.toLowerCase().includes(busca.toLowerCase())
+    a.marca?.toLowerCase().includes(busca.toLowerCase()) ||
+    a.codigo_barras?.includes(busca)
   );
 
   if (loading) return <Box textAlign="center" p={10}><CircularProgress /></Box>;
@@ -75,7 +77,7 @@ export default function ListaAlimentos() {
           fullWidth
           variant="outlined"
           size="small"
-          placeholder="Buscar por nome ou marca..."
+          placeholder="Buscar por nome, marca ou código de barras..."
           value={busca}
           onChange={(e) => setBusca(e.target.value)}
           sx={{ mb: 3 }}
@@ -88,6 +90,7 @@ export default function ListaAlimentos() {
           <Table>
             <TableHead sx={{ bgcolor: "#f8fafc" }}>
               <TableRow>
+                <TableCell sx={{ fontWeight: 'bold' }}>Cód. Barras</TableCell>
                 <TableCell sx={{ fontWeight: 'bold' }}>Nome / Marca</TableCell>
                 <TableCell sx={{ fontWeight: 'bold' }}>Grupo</TableCell>
                 <TableCell sx={{ fontWeight: 'bold' }}>Estoque Atual</TableCell>
@@ -98,22 +101,47 @@ export default function ListaAlimentos() {
             </TableHead>
             <TableBody>
               {filtrados.length === 0 ? (
-                <TableRow><TableCell colSpan={6} align="center">Nenhum alimento encontrado.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={7} align="center">Nenhum alimento encontrado.</TableCell></TableRow>
               ) : (
                 filtrados.map((a) => (
                   <TableRow key={a.id} hover>
+                    <TableCell>
+                      <Stack direction="row" spacing={1} alignItems="center">
+                        <BarcodeIcon fontSize="small" sx={{ color: 'text.disabled' }} />
+                        <Typography variant="body2" sx={{ fontFamily: 'monospace', fontWeight: 'bold' }}>
+                          {a.codigo_barras || "---"}
+                        </Typography>
+                      </Stack>
+                    </TableCell>
+
                     <TableCell>
                       <Typography variant="body2" fontWeight="bold">{a.nome}</Typography>
                       <Typography variant="caption" color="text.secondary">{a.marca || "Sem marca"}</Typography>
                     </TableCell>
                     <TableCell><Chip label={a.alimentos_grupos?.nome || 'S/G'} size="small" variant="outlined" /></TableCell>
+                    
+                    {/* 🔹 Estoque Atual com 2 casas decimais e vírgula */}
                     <TableCell>
-                      <Typography variant="body2" color={Number(a.estoque_atual) <= Number(a.estoque_minimo) ? "error.main" : "inherit"}>
-                        {a.estoque_atual} {a.unidade_medida}
+                      <Typography 
+                        variant="body2" 
+                        color={Number(a.estoque_atual) <= Number(a.estoque_minimo) ? "error.main" : "inherit"} 
+                        fontWeight="bold"
+                      >
+                        {Number(a.estoque_atual || 0).toLocaleString('pt-BR', { 
+                          minimumFractionDigits: 2, 
+                          maximumFractionDigits: 2 
+                        })} {a.unidade_medida}
                       </Typography>
                     </TableCell>
-                    <TableCell>R$ {Number(a.valor_unitario_custo || 0).toFixed(2)}</TableCell>
-                    <TableCell>R$ {Number(a.valor_unitario_venda || 0).toFixed(2)}</TableCell>
+
+                    <TableCell>
+                      R$ {Number(a.valor_unitario_custo || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </TableCell>
+
+                    <TableCell>
+                      R$ {Number(a.valor_unitario_venda || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </TableCell>
+
                     <TableCell align="center">
                       <IconButton onClick={() => router.push(`/inicial_page/alimentos/cadastro/${a.id}`)}>
                         <EditIcon fontSize="small" color="primary" />

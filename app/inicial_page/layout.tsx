@@ -129,19 +129,11 @@ export default function InicialLayout({ children }: { children: React.ReactNode 
             onClick={() => goTo("/inicial_page/criadouros")}
             sx={{ flexDirection: 'column', alignItems: 'center', textAlign: 'center', borderRadius: 2, mb: 2 }}
           >
-            <ListItemIcon sx={{ minWidth: 0 }}>{CustomIcon("/icons/criadouros.png")}</ListItemIcon>
-            <ListItemText primary="Criadouros" primaryTypographyProps={{ fontSize: '0.75rem', fontWeight: 'bold' }} />
+            <ListItemIcon sx={{ minWidth: 0 }}>{CustomIcon("/icons/contatos.png")}</ListItemIcon>
+            <ListItemText primary="Contatos" primaryTypographyProps={{ fontSize: '0.75rem', fontWeight: 'bold' }} />
           </ListItemButton>
 
-          <ListItemButton 
-            selected={pathname === "/inicial_page/entidades"} 
-            onClick={() => goTo("/inicial_page/entidades")}
-            sx={{ flexDirection: 'column', alignItems: 'center', textAlign: 'center', borderRadius: 2, mb: 2 }}
-          >
-            <ListItemIcon sx={{ minWidth: 0 }}>{CustomIcon("/icons/entidades.png")}</ListItemIcon>
-            <ListItemText primary="Entidades" primaryTypographyProps={{ fontSize: '0.75rem', fontWeight: 'bold' }} />
-          </ListItemButton>
-
+          
           <ListItemButton 
             selected={pathname === "/inicial_page/especies"} 
             onClick={() => goTo("/inicial_page/especies")}

@@ -7,7 +7,7 @@ import { formataDados } from "@/lib/formataDados";
 import { useEmpresa } from "@/context/empresaContext";
 import {
   Box, Typography, Button, TextField, Paper, CircularProgress,
-  Container, Divider, FormControlLabel, Checkbox, MenuItem, Select, FormControl, InputLabel
+  Container, Divider, FormControlLabel, Checkbox, MenuItem, Select, FormControl, InputLabel, FormGroup
 } from "@mui/material";
 import SaveIcon from "@mui/icons-material/Save";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
@@ -37,6 +37,15 @@ export default function CadastroCriadouro() {
   const [telefone, setTelefone] = useState("");
   const [eProprio, setEProprio] = useState(false);
 
+  // 🔹 Novos Estados de Classificação
+  const [tipoCriadouro, setTipoCriadouro] = useState(true);
+  const [tipoCliente, setTipoCliente] = useState(true);
+  const [tipoFornecedor, setTipoFornecedor] = useState(false);
+  const [tipoFuncionario, setTipoFuncionario] = useState(false);
+  const [tipoSocio, setTipoSocio] = useState(false);
+  const [tipoOutros, setTipoOutros] = useState(false);
+  const [tipoEntidade, setTipoEntidade] = useState(false);
+
   const [ctfNumero, setCtfNumero] = useState("");
   const [registroSispass, setRegistroSispass] = useState("");
   const [categoriaCriador, setCategoriaCriador] = useState("Amador");
@@ -61,6 +70,16 @@ export default function CadastroCriadouro() {
       setEmail(data.email || "");
       setTelefone(formataDados(data.telefone || "", "celular"));
       setEProprio(data.e_proprio);
+      
+      // 🔹 Carregar Classificações
+      setTipoCriadouro(data.tipo_criadouro ?? true);
+      setTipoCliente(data.tipo_cliente ?? true);
+      setTipoFornecedor(data.tipo_fornecedor ?? false);
+      setTipoFuncionario(data.tipo_funcionario ?? false);
+      setTipoSocio(data.tipo_socio ?? false);
+      setTipoOutros(data.tipo_outros ?? false);
+      setTipoEntidade(data.tipo_entidade ?? false);
+
       setCtfNumero(data.ctf_numero || "");
       setRegistroSispass(data.registro_sispass || "");
       setCategoriaCriador(data.categoria_criador || "Amador");
@@ -76,20 +95,16 @@ export default function CadastroCriadouro() {
   const handleCepChange = async (v: string) => {
     const limpo = v.replace(/\D/g, "");
     setCep(formataDados(limpo, "cep"));
-
     if (limpo.length === 8) {
       try {
         const res = await fetch(`https://viacep.com.br/ws/${limpo}/json/`);
-        const dados = await res.json(); // Alterado de 'd' para 'dados'
-        
+        const dados = await res.json();
         if (!dados.erro) {
           setEndereco(dados.logradouro || "");
-          setCidade(dados.localidade || ""); // Agora 'dados' existe aqui
+          setCidade(dados.localidade || "");
           setEstado(dados.uf || "");
         }
-      } catch (err) { 
-        console.error("Erro ao buscar CEP:", err); 
-      }
+      } catch (err) { console.error("Erro ao buscar CEP:", err); }
     }
   };
 
@@ -112,7 +127,15 @@ export default function CadastroCriadouro() {
       registro_sispass: registroSispass,
       categoria_criador: categoriaCriador,
       data_validade_licenca: dataValidade || null,
-      capacidade_maxima_aves: capacidadeAves
+      capacidade_maxima_aves: capacidadeAves,
+      // 🔹 Enviar Classificações
+      tipo_criadouro: tipoCriadouro,
+      tipo_cliente: tipoCliente,
+      tipo_fornecedor: tipoFornecedor,
+      tipo_funcionario: tipoFuncionario,
+      tipo_socio: tipoSocio,
+      tipo_entidade: tipoEntidade,
+      tipo_outros: tipoOutros
     };
 
     const { error } = idCriadouro 
@@ -121,7 +144,7 @@ export default function CadastroCriadouro() {
 
     if (error) alert("Erro: " + error.message);
     else {
-      alert("Criadouro salvo com sucesso!");
+      alert("Contato salvo com sucesso!");
       router.push("/inicial_page/criadouros");
     }
     setLoading(false);
@@ -129,44 +152,22 @@ export default function CadastroCriadouro() {
 
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
-      <Paper 
-        variant="outlined" 
-        elevation={0}
-        sx={{ 
-          p: 4, 
-          borderRadius: 4, 
-          borderColor: "#cbd5e1", 
-          borderWidth: "4px",      
-          borderStyle: "solid",
-          bgcolor: "#ffffff"
-        }}
-      >
+      <Paper variant="outlined" elevation={0} sx={{ p: 4, borderRadius: 4, borderColor: "#cbd5e1", borderWidth: "4px", borderStyle: "solid", bgcolor: "#ffffff" }}>
+        
         <Box sx={{ display: 'flex', alignItems: 'center', mb: 4, justifyContent: 'space-between' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-            {/* 🖼️ Ícone personalizado de 96px */}
-            <Box
-              component="img"
-              src="/icons/criadouros.png"
-              alt="Ícone Criadouro"
-              sx={{ width: 96, height: 96, objectFit: 'contain' }}
-            />
+            <Box component="img" src="/icons/contatos.png" alt="Ícone Contato" sx={{ width: 96, height: 96, objectFit: 'contain' }} />
             <Typography variant="h4" fontWeight="900" color="#1e293b">
-              {idCriadouro ? "Editar Criadouro" : "Novo Criadouro"}
+              {idCriadouro ? "Editar Contato" : "Novo Contato"}
             </Typography>
           </Box>
-          <Button 
-            startIcon={<ArrowBackIcon />} 
-            onClick={() => router.push("/inicial_page/criadouros")}
-            sx={{ fontWeight: "bold", color: "#64748b" }}
-          >
+          <Button startIcon={<ArrowBackIcon />} onClick={() => router.push("/inicial_page/criadouros")} sx={{ fontWeight: "bold", color: "#64748b" }}>
             Voltar
           </Button>
         </Box>
 
         {loading && idCriadouro && (
-          <Box sx={{ display: 'flex', justifyContent: 'center', py: 5 }}>
-            <CircularProgress />
-          </Box>
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 5 }}><CircularProgress /></Box>
         )}
 
         {!continuar && (
@@ -182,6 +183,41 @@ export default function CadastroCriadouro() {
 
         {continuar && !loading && (
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+            
+            {/* 🔹 BLOCO DE CLASSIFICAÇÃO (CHECKBOXES EM UMA LINHA) */}
+            <Box sx={{ p: 1.5, bgcolor: "#f8fafc", borderRadius: 2, border: "1px solid #e2e8f0" }}>
+              <FormGroup sx={{ flexDirection: 'row', justifyContent: 'space-around' }}>
+                <FormControlLabel 
+                  control={<Checkbox size="small" checked={tipoCriadouro} onChange={(e) => setTipoCriadouro(e.target.checked)} />} 
+                  label={<Typography sx={{ fontSize: '0.8rem', fontWeight: 'bold' }}>Criadouro</Typography>} 
+                />
+                <FormControlLabel 
+                  control={<Checkbox size="small" checked={tipoCliente} onChange={(e) => setTipoCliente(e.target.checked)} />} 
+                  label={<Typography sx={{ fontSize: '0.8rem', fontWeight: 'bold' }}>Cliente</Typography>} 
+                />
+                <FormControlLabel 
+                  control={<Checkbox size="small" checked={tipoFornecedor} onChange={(e) => setTipoFornecedor(e.target.checked)} />} 
+                  label={<Typography sx={{ fontSize: '0.8rem', fontWeight: 'bold' }}>Fornecedor</Typography>} 
+                />
+                <FormControlLabel 
+                  control={<Checkbox size="small" checked={tipoFuncionario} onChange={(e) => setTipoFuncionario(e.target.checked)} />} 
+                  label={<Typography sx={{ fontSize: '0.8rem', fontWeight: 'bold' }}>Funcionário</Typography>} 
+                />
+                <FormControlLabel 
+                  control={<Checkbox size="small" checked={tipoSocio} onChange={(e) => setTipoSocio(e.target.checked)} />} 
+                  label={<Typography sx={{ fontSize: '0.8rem', fontWeight: 'bold' }}>Sócio</Typography>} 
+                />
+                <FormControlLabel 
+                  control={<Checkbox size="small" checked={tipoOutros} onChange={(e) => setTipoOutros(e.target.checked)} />} 
+                  label={<Typography sx={{ fontSize: '0.8rem', fontWeight: 'bold' }}>Outros</Typography>} 
+                />
+                <FormControlLabel 
+                  control={<Checkbox size="small" checked={tipoEntidade} onChange={(e) => setTipoEntidade(e.target.checked)} />} 
+                  label={<Typography sx={{ fontSize: '0.8rem', fontWeight: 'bold' }}>Clube / Assoc.</Typography>} 
+                />
+              </FormGroup>
+            </Box>
+
             <Box sx={{ display: 'flex', gap: 2, flexDirection: { xs: 'column', sm: 'row' } }}>
               <TextField
                 label={tipoPessoa === "PF" ? "Nome Completo" : "Razão Social"}
@@ -209,7 +245,6 @@ export default function CadastroCriadouro() {
             <Box sx={{ display: 'flex', gap: 2, flexDirection: { xs: 'column', sm: 'row' } }}>
               <TextField label="CEP" sx={{ width: '150px' }} value={cep} onChange={(e) => handleCepChange(e.target.value)} />
               <TextField label="Endereço" sx={{ flex: 1 }} value={endereco} onChange={(e) => setEndereco(e.target.value)} />
-              
               <TextField label="UF" sx={{ width: '80px' }} value={estado} onChange={(e) => setEstado(e.target.value.toUpperCase())} inputProps={{ maxLength: 2 }} />
             </Box>
 
@@ -241,20 +276,8 @@ export default function CadastroCriadouro() {
             </Box>
 
             <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
-              <Button 
-                variant="contained" 
-                size="large" 
-                startIcon={<SaveIcon />} 
-                onClick={handleSalvar} 
-                disabled={loading} 
-                sx={{ 
-                  px: 6, 
-                  fontWeight: "bold", 
-                  bgcolor: "#1e293b", 
-                  borderRadius: 2,
-                  "&:hover": { bgcolor: "#334155" } 
-                }}
-              >
+              <Button variant="contained" size="large" startIcon={<SaveIcon />} onClick={handleSalvar} disabled={loading} 
+                sx={{ px: 6, fontWeight: "bold", bgcolor: "#1e293b", borderRadius: 2, "&:hover": { bgcolor: "#334155" } }}>
                 {loading ? "Processando..." : "Salvar Criadouro"}
               </Button>
             </Box>

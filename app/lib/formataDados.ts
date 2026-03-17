@@ -89,6 +89,16 @@ export function formataDados(d: string | number | null | undefined, tipo: string
       return valorTexto.trim().toLowerCase();
     }
 
+    case "decimal": {
+      const valorLimpo = valorTexto.replace(/\D/g, "");
+      if (!valorLimpo) return "0,00";
+      const valorNumerico = parseFloat(valorLimpo) / 100;
+      return new Intl.NumberFormat("pt-BR", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }).format(valorNumerico);
+    }
+
     default:
       return valorTexto;
   }
